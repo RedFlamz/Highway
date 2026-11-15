@@ -1,0 +1,121 @@
+{
+  "tileUrl": "https://lotus.blossomcraft.org/tiles/{world}/0/{x}_{z}.png",
+  "waypoints": [
+    {
+      "name": "Community Center",
+      "x": 0,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#6bff89"
+    },
+    {
+      "name": "/pw Highway",
+      "x": 840,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#bb67c5"
+    },
+    {
+      "name": "Rest Stop",
+      "x": 4775,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#bb67c5"
+    },
+    {
+      "name": "Destroyed Desert",
+      "x": 9800,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#cecb83"
+    },
+    {
+      "name": "Atlantis / LH10 Junction",
+      "x": 11080,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#47b9ff"
+    },
+    {
+      "name": "Desert Oasis",
+      "x": 12400,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#24c0f5"
+    },
+    {
+      "name": "World Border",
+      "x": 25000,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#244ef5"
+    },
+    {
+      "name": "BjoernX's Shop",
+      "x": 1948,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#b6851b"
+    },
+    {
+      "name": "Dreamsure's Shop",
+      "x": 1948,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#a1a1a1"
+    },
+    {
+      "name": "/pw Highway Mall",
+      "x": 593,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#bcd293"
+    },
+    {
+      "name": "Blossomcraft Sign",
+      "x": 500,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#ff66fa"
+    },
+    {
+      "name": "Brightnesss Highway/Buc-ees",
+      "x": -3404,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#fe3939"
+    },
+    {
+      "name": "Regalian Empire",
+      "x": -3404,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#700000"
+    }
+  ],
+  "regions": [
+    {
+      "name": "Main",
+      "dim": "minecraft_overworld",
+      "x1": -25000,
+      "z1": -25000,
+      "x2": 25000,
+      "z2": 25000,
+      "lx": 0,
+      "ly": 0
+    }
+  ]
+}

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>/pw Highway · Blossomcraft</title>
+<style>
+:root{--bg:#eef7f1;--surface:#fff;--text:#12241a;--muted:#4f6b5b;--border:#cfe5d7;--green:#1f9d55;--pink:#d6336c;--glow:rgba(31,157,85,.12);--on:#fff;
+color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a130e;--surface:#10201a;--text:#e8f5ed;--muted:#8fb09c;--border:#1f3a2d;--green:#3ddc84;--pink:#ff6aa8;--glow:rgba(61,220,132,.13);--on:#05200f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0a130e;--surface:#10201a;--text:#e8f5ed;--muted:#8fb09c;--border:#1f3a2d;--green:#3ddc84;--pink:#ff6aa8;--glow:rgba(61,220,132,.13);--on:#05200f;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header::after{content:"";display:block;height:3px;background:linear-gradient(90deg,var(--green) 0 90%,var(--pink) 90%)}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:11;background:var(--surface);border-bottom:1px solid var(--border)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--surface);z-index:10}
+.bar{max-width:1000px;margin:auto;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
+.logo{font-weight:800;font-size:1.1rem;margin-right:auto}.logo span{color:var(--pink)}.logo b{color:var(--green)}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:999px;font-weight:600;font-size:.92rem}
+nav a:hover{color:var(--text)}nav a.on{background:var(--glow);color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+button,.btn{font:inherit;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:7px 14px;border-radius:10px;text-decoration:none;display:inline-block}
+button:hover,.btn:hover{border-color:var(--green)}
+.pri{background:var(--green);border-color:var(--green);color:var(--on);font-weight:700}
+.pk{background:transparent;border-color:var(--green);color:var(--green);font-weight:700}
+main{max-width:1000px;margin:auto;padding:24px 16px 56px}
+.page{display:none}.page.on{display:block}
+h1{font-size:clamp(1.8rem,5vw,2.8rem);line-height:1.15;margin:.2em 0}
+h1 em{font-style:normal;color:var(--green);border-bottom:3px solid var(--pink)}h2{margin-top:0}
+.hero{padding:28px;border-radius:18px;background:linear-gradient(135deg,var(--glow),transparent 60%),var(--surface);border:1px solid var(--border);border-left:5px solid var(--green)}
+.hero p{color:var(--muted);max-width:60ch}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
+.card h3{margin:0 0 4px;color:var(--green)}.card p{margin:0;color:var(--muted)}
+ol.rules{padding-left:0;list-style:none;counter-reset:r;display:grid;gap:10px}
+ol.rules li{counter-increment:r;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px 12px 52px;position:relative}
+ol.rules li::before{content:counter(r);position:absolute;left:12px;top:10px;width:28px;height:28px;border-radius:50%;background:var(--green);color:var(--on);display:grid;place-items:center;font-weight:700;font-size:.9rem}
+.prog{height:16px;background:var(--border);border-radius:99px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,var(--green) 88%,var(--pink));border-radius:99px;transition:width .6s}
+.sec{margin-top:12px}.row{display:flex;justify-content:space-between;gap:8px;font-weight:600;margin-bottom:4px;flex-wrap:wrap}
+.tag{font-size:.78rem;padding:2px 10px;border-radius:99px;border:1px solid var(--green);color:var(--green)}
+.tag.wip{border-color:var(--pink);color:var(--pink)}.tag.todo{border-color:var(--muted);color:var(--muted)}
+iframe{width:100%;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+#formf{height:560px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px}
+.panel h3{margin:0 0 8px;color:var(--green)}
+label{display:block;font-size:.8rem;color:var(--muted);margin-top:8px}
+input,select,textarea{width:100%;font:inherit;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+.xyz{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.wp{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border);flex-wrap:wrap}
+.wp .dot{width:12px;height:12px;border-radius:50%;flex:none}.wp .n{flex:1;min-width:90px;font-weight:600}
+.wp small{display:block;color:var(--muted);font-weight:400}.wp button{padding:3px 9px;font-size:.82rem}
+.mini{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.note{color:var(--muted);font-size:.88rem}
+body.maprt main{max-width:none;padding:0}body.maprt footer{display:none}
+.mapwrap{display:flex;flex-direction:column;height:calc(100dvh - 72px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:420px;position:relative}
+#mapf{flex:1;height:auto;min-height:0;border-radius:0;border-width:1px 0}
+.side{position:absolute;z-index:2;left:10px;right:10px;bottom:56px;max-height:34%;overflow:auto;background:color-mix(in srgb,var(--surface) 93%,transparent);backdrop-filter:blur(6px);box-shadow:0 6px 24px rgba(0,0,0,.3);border-radius:14px;border-width:1px}
+.side.off{display:none}
+@media(min-width:860px){.side{left:auto;top:10px;bottom:auto;width:300px;max-height:calc(100% - 20px)}}
+.tog{position:absolute;bottom:10px;left:10px;z-index:3;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.out{font-family:ui-monospace,Menlo,monospace;font-size:.8rem;min-height:200px}
+#vport{flex:1;position:relative;overflow:hidden;touch-action:none;cursor:grab;background:var(--bg);border-block:1px solid var(--border)}
+#vstage{position:absolute;left:0;top:0;transform-origin:0 0}
+.reg{position:absolute;background:repeating-linear-gradient(45deg,var(--glow) 0 12px,transparent 12px 24px);outline:calc(2px*var(--inv,1)) solid var(--green)}
+.arr .reg{cursor:move;outline-color:var(--pink)}
+.tiles{position:absolute;inset:0;overflow:hidden}.tile{position:absolute;max-width:none;image-rendering:pixelated;user-select:none}
+.rlabel{position:absolute;left:0;top:0;transform-origin:0 0;transform:translateY(-100%) scale(var(--inv,1));background:var(--green);color:var(--on);padding:2px 8px;font:700 12px system-ui;white-space:nowrap;border-radius:6px 6px 0 0;pointer-events:none}
+.pin{position:absolute;transform:translate(-50%,-50%) scale(var(--inv,1));display:flex;align-items:center;gap:4px;white-space:nowrap;font:700 13px system-ui;pointer-events:none}
+.pin i{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #0006}
+.pin span{background:var(--surface);color:var(--text);padding:1px 6px;border-radius:6px;border:1px solid var(--border)}
+.vbar{position:absolute;z-index:3;top:10px;left:10px;right:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;pointer-events:none}
+.vbar>*{pointer-events:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-size:.85rem}
+.vbar label{display:flex;align-items:center;gap:6px;margin:0;color:var(--text)}.vbar input{width:auto}
+#vhint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);pointer-events:none;padding:20px}
+.wpo{position:absolute;z-index:3;left:10px;bottom:10px;width:230px;max-height:42%;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px;font-size:.85rem}
+.wchip{display:flex;align-items:center;gap:6px;width:100%;text-align:left;margin:2px 0;padding:5px 8px;font-size:.85rem}
+.wchip i{width:10px;height:10px;border-radius:50%;flex:none}.wchip:disabled{opacity:.5;cursor:default}
+.nopins .pin{display:none}.pin.hl span{background:var(--pink);color:#fff;border-color:var(--pink)}
+footer{text-align:center;color:var(--muted);padding:20px;font-size:.85rem}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="logo"><span>/pw</span> <b>Highway</b></div>
+  <nav id="nav">
+    <a href="#home" data-p="home">Home</a><a href="#rules" data-p="rules">Rules</a>
+    <a href="#status" data-p="status">Progress</a><a href="#map" data-p="map">Map</a><a href="#custom" data-p="custom">Custom map</a><a href="#feedback" data-p="feedback">Feedback</a><a href="#builder" data-p="builder">Builder</a>
+  </nav>
+  <button id="theme" aria-label="Toggle theme">◐ Theme</button>
+</div></header>
+
+<main>
+<section class="page" id="p-home">
+  <div class="hero">
+    <h1><em>/pw</em> Highway on Blossomcraft</h1>
+    <p>A fast, safe road linking player warps across the server. Follow the build’s progress, check the rules, and explore it on the live map.</p>
+    <p style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn pri" href="#map">Open map</a><a class="btn pk" href="#status">See progress</a></p>
+  </div>
+  <div class="grid">
+    <div class="card"><h3>Rules</h3><p>Keep the road clean and open for everyone.</p></div>
+    <div class="card"><h3>Progress</h3><p>See which stretches are finished.</p></div>
+    <div class="card"><h3>Map</h3><p>Live Lotus map plus waypoints.</p></div>
+  </div>
+</section>
+
+<section class="page" id="p-rules">
+  <h2>Highway rules</h2>
+  <p class="note">Edit the RULES list in the file to change these.</p>
+  <ol class="rules" id="rules"></ol>
+</section>
+
+<section class="page" id="p-status">
+  <h2>Status &amp; progress</h2>
+  <div class="card">
+    <div class="row"><span>Overall</span><span id="total">0%</span></div>
+    <div class="prog"><div class="fill" id="totalbar" style="width:0"></div></div>
+  </div>
+  <div id="secs"></div>
+</section>
+
+<section class="page" id="p-map">
+  <div class="mapwrap">
+    <button class="tog" id="tog">☰ Waypoints</button>
+    <iframe id="mapf" title="Lotus map"></iframe>
+    <div class="panel side" id="side">
+      <h3>Highway waypoints</h3>
+      <div id="wl"></div>
+      <p class="note">Map blank? The site may block embedding: <a id="newtab" target="_blank" rel="noopener" style="color:var(--green)">open in new tab</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="p-custom">
+  <div class="mapwrap">
+    <div class="vbar">
+      <label><input type="checkbox" id="vdraft"> Preview builder draft</label>
+      <label><input type="checkbox" id="vshow" checked> Show waypoints</label>
+      <label><input type="checkbox" id="varr"> Arrange (drag regions)</label>
+      <button id="vfit">Fit all</button>
+    </div>
+    <div class="wpo" id="wpo"></div>
+    <div id="vport"><div id="vstage"></div><div id="vhint" hidden>No regions yet. Add some on the Builder page.</div></div>
+  </div>
+</section>
+
+<section class="page" id="p-builder">
+  <h2>Waypoint JSON builder</h2>
+  <p class="note">Add waypoints, then copy the JSON. Save it as <code>waypoints.json</code> next to this page, or paste it into the <code>wpdata</code> block in the HTML.</p>
+  <div class="mapwrap" style="height:auto;flex-direction:column;gap:14px">
+    <div class="panel">
+      <label>Name<input id="bn" placeholder="e.g. North Hub"></label>
+      <div class="xyz"><label>X<input id="bx" type="number" value="0"></label><label>Y<input id="by" type="number" value="64"></label><label>Z<input id="bz" type="number" value="0"></label></div>
+      <label>Dimension<select id="bd"><option value="minecraft_overworld">Overworld</option><option value="minecraft_the_nether">Nether</option><option value="minecraft_the_end">End</option></select></label>
+      <label>Colour<input id="bc" type="color" value="#ff6aa8"></label>
+      <label>Note (optional)<input id="bt" placeholder="Short description"></label>
+      
+      <div class="mini"><button class="pri" id="badd">Add waypoint</button><button id="bcancel" hidden>Cancel edit</button></div>
+    </div>
+    <div class="panel"><h3>Waypoints</h3><div id="bl"></div></div>
+    <div class="panel"><h3>Custom map regions</h3>
+      <p class="note">Pick the block bounds of each piece of the squaremap to pull out. Drag them into place on the Custom map page.</p>
+      <label>Name<input id="rn" placeholder="e.g. Spawn to hub"></label>
+      <label>World<select id="rw"><option value="minecraft_overworld">Overworld</option><option value="minecraft_the_nether">Nether</option><option value="minecraft_the_end">End</option></select></label>
+      <div class="xyz" style="grid-template-columns:repeat(4,1fr)"><label>X1<input id="rx1" type="number" value="-512"></label><label>Z1<input id="rz1" type="number" value="-512"></label><label>X2<input id="rx2" type="number" value="512"></label><label>Z2<input id="rz2" type="number" value="512"></label></div>
+      <label>Tile URL template<input id="btu"></label>
+      <div class="mini"><button class="pk" id="radd">Add region</button></div>
+      <div id="rl"></div></div>
+    <div class="panel"><h3>JSON output</h3>
+      <textarea id="bout" class="out"></textarea>
+      <div class="mini"><button class="pk" id="bcopy">Copy JSON</button><button id="bdl">Download</button><button id="bload">Import from box</button><button id="bsite">Load site’s current list</button></div>
+      <p class="note" id="bmsg"></p>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="p-feedback">
+  <h2>Suggestions &amp; questions</h2>
+  <p class="note">Set <code>FORM_URL</code> in the file to your Google Form’s embed link and it will appear here.</p>
+  <iframe id="formf" title="Suggestions and questions form" loading="lazy"></iframe>
+</section>
+</main>
+<footer>/pw Highway · built on Blossomcraft</footer>
+
+<script type="application/json" id="wpdata">{"tileUrl":"https://lotus.blossomcraft.org/tiles/{world}/0/{x}_{z}.png","waypoints":[{"name":"Spawn hub","x":0,"y":64,"z":0,"dim":"minecraft_overworld","color":"#3ddc84","note":"Highway start"},{"name":"North hub","x":0,"y":64,"z":-2000,"dim":"minecraft_overworld","color":"#ff6aa8","note":"Example waypoint"}],"regions":[{"name":"Spawn","dim":"minecraft_overworld","x1":-512,"z1":-512,"x2":512,"z2":512,"lx":0,"ly":0},{"name":"North hub","dim":"minecraft_overworld","x1":-512,"z1":-2512,"x2":512,"z2":-1488,"lx":1200,"ly":0}]}</script>
+<script>
+/* ===== EDIT ME ===== */
+const MAP_BASE = "https://lotus.blossomcraft.org";
+const FORM_URL = ""; // paste your Google Form embed URL
+const RULES = [
+  "Don’t grief or remove any part of the highway.",
+  "Keep the road clear: no storage, farms on the lanes."
+];
+const SECTIONS = [
+  {name:"Spawn/Bayhaven", pct:75},
+  {name:"+X", pct:100},
+  {name:"-X", pct:90},
+  {name:"+Z", pct:5},
+  {name:"-Z", pct:0}
+];
+/* =================== */
+
+const $ = s => document.querySelector(s);
+const root = document.documentElement;
+
+// theme
+try { const t = localStorage.getItem("pwtheme"); if (t) root.dataset.theme = t; } catch(e){}
+$("#theme").onclick = () => {
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("pwtheme", root.dataset.theme); } catch(e){}
+};
+
+// routing
+const PAGES = ["home","rules","status","map","custom","feedback","builder"];
+function route(){
+  let h = location.hash.slice(1); if (!PAGES.includes(h)) h = "home";
+  PAGES.forEach(p => $("#p-"+p).classList.toggle("on", p===h));
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.p===h));
+  document.body.classList.toggle("maprt", h==="map"||h==="custom");
+  if (h==="custom"){ vrender(); if(!vfitted){ vfit(); vfitted=true; } }
+  if (h==="map" && !$("#mapf").src) loadMap();
+  scrollTo(0,0);
+}
+addEventListener("hashchange", route);
+
+// rules + status
+RULES.forEach(r => { const li = document.createElement("li"); li.textContent = r; $("#rules").appendChild(li); });
+const avg = Math.round(SECTIONS.reduce((a,s)=>a+s.pct,0)/SECTIONS.length);
+$("#total").textContent = avg+"%"; $("#totalbar").style.width = avg+"%";
+SECTIONS.forEach(s => {
+  const d = document.createElement("div"); d.className="card sec";
+  const tag = s.pct>=100 ? ["Done",""] : s.pct>0 ? ["In progress","wip"] : ["Planned","todo"];
+  d.innerHTML = '<div class="row"><span></span><span><span class="tag '+tag[1]+'">'+tag[0]+'</span> '+s.pct+'%</span></div><div class="prog"><div class="fill" style="width:'+s.pct+'%"></div></div>';
+  d.querySelector(".row span").textContent = s.name;
+  $("#secs").appendChild(d);
+});
+
+// form
+if (FORM_URL) $("#formf").src = FORM_URL;
+
+// waypoints: waypoints.json if hosted beside the page, else the inline wpdata block
+let DATA = {tileUrl:"", waypoints:[], regions:[]};
+const inline = () => { try { return JSON.parse($("#wpdata").textContent); } catch(e){ return DATA; } };
+const DIMFIX = {world:"minecraft_overworld",world_nether:"minecraft_the_nether",world_the_end:"minecraft_the_end"};
+const TILE0 = MAP_BASE+"/tiles/{world}/0/{x}_{z}.png";
+function norm(d){
+  const a = Array.isArray(d) ? d : (d && d.waypoints) || [];
+  const wp = a.filter(w=>w&&typeof w.x==="number"&&typeof w.z==="number").map(w=>({...w,dim:DIMFIX[w.dim]||w.dim||"minecraft_overworld"}));
+  const rg = ((d&&d.regions)||[]).filter(r=>r&&typeof r.x1==="number"&&typeof r.x2==="number").map(r=>({...r,dim:DIMFIX[r.dim]||r.dim||"minecraft_overworld",lx:r.lx||0,ly:r.ly||0}));
+  return {tileUrl:(d&&d.tileUrl)||TILE0, waypoints:wp, regions:rg};
+}
+// squaremap link format: /?world=<name>&x=<x>&z=<z>
+function mapUrl(w){
+  if (!w) return MAP_BASE;
+  return MAP_BASE+"/?world="+encodeURIComponent(w.dim||"minecraft_overworld")+"&x="+w.x+"&z="+w.z;
+}
+function loadMap(w){ const u = mapUrl(w); $("#mapf").src = u; $("#newtab").href = u; }
+function render(){
+  const box = $("#wl"); box.textContent = "";
+  if (!DATA.waypoints.length){ box.innerHTML='<p class="note">No waypoints yet.</p>'; return; }
+  DATA.waypoints.forEach(w => {
+    const r = document.createElement("div"); r.className="wp";
+    const dot = document.createElement("span"); dot.className="dot"; dot.style.background=w.color||"#ff6aa8";
+    const n = document.createElement("span"); n.className="n"; n.textContent=w.name;
+    const s = document.createElement("small"); s.textContent = w.x+", "+(w.y??64)+", "+w.z+" · "+(w.dim||"world")+(w.note?" · "+w.note:""); n.appendChild(s);
+    const go = document.createElement("button"); go.textContent="Go"; go.onclick=()=>loadMap(w);
+    const cp = document.createElement("button"); cp.textContent="Copy"; cp.onclick=()=>{ try{navigator.clipboard.writeText(w.x+" "+(w.y??64)+" "+w.z);}catch(e){} };
+    r.append(dot,n,go,cp); box.appendChild(r);
+  });
+}
+$("#tog").onclick = () => $("#side").classList.toggle("off");
+
+// builder
+let B = [], R = [], editing = -1, vfitted = false;
+try { B = JSON.parse(localStorage.getItem("pwbuild")||"[]"); } catch(e){}
+const bjson = () => JSON.stringify({tileUrl:$("#btu").value, waypoints:B, regions:R}, null, 2);
+function brender(){
+  try { localStorage.setItem("pwbuild", JSON.stringify(B)); localStorage.setItem("pwreg", JSON.stringify(R)); } catch(e){}
+  $("#bout").value = bjson();
+  const box = $("#bl"); box.textContent = "";
+  if (!B.length){ box.innerHTML='<p class="note">Nothing yet.</p>'; return; }
+  B.forEach((w,i) => {
+    const r = document.createElement("div"); r.className="wp";
+    const dot = document.createElement("span"); dot.className="dot"; dot.style.background=w.color;
+    const n = document.createElement("span"); n.className="n"; n.textContent=w.name;
+    const s = document.createElement("small"); s.textContent = w.x+", "+w.y+", "+w.z+" · "+w.dim; n.appendChild(s);
+    const ed = document.createElement("button"); ed.textContent="Edit"; ed.onclick=()=>{ editing=i; $("#bn").value=w.name; $("#bx").value=w.x; $("#by").value=w.y; $("#bz").value=w.z; $("#bd").value=w.dim; $("#bc").value=w.color; $("#bt").value=w.note||""; $("#badd").textContent="Save changes"; $("#bcancel").hidden=false; };
+    const up = document.createElement("button"); up.textContent="↑"; up.onclick=()=>{ if(i>0){ [B[i-1],B[i]]=[B[i],B[i-1]]; brender(); } };
+    const del = document.createElement("button"); del.textContent="✕"; del.onclick=()=>{ B.splice(i,1); brender(); };
+    r.append(dot,n,ed,up,del); box.appendChild(r);
+  });
+}
+function breset(){ editing=-1; $("#bn").value=""; $("#bt").value=""; $("#badd").textContent="Add waypoint"; $("#bcancel").hidden=true; }
+$("#badd").onclick = () => {
+  const w = {name:$("#bn").value.trim()||"Waypoint "+(B.length+1), x:+$("#bx").value||0, y:+$("#by").value||0, z:+$("#bz").value||0, dim:$("#bd").value, color:$("#bc").value};
+  const note = $("#bt").value.trim(); if (note) w.note = note;
+  if (editing>=0) B[editing]=w; else B.push(w);
+  breset(); brender();
+};
+$("#bcancel").onclick = breset;
+$("#btu").oninput = brender;
+$("#bcopy").onclick = () => { $("#bout").select(); try { navigator.clipboard.writeText($("#bout").value); $("#bmsg").textContent="Copied."; } catch(e){ $("#bmsg").textContent="Press Ctrl/Cmd+C to copy."; } };
+$("#bdl").onclick = () => {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bjson()],{type:"application/json"})); a.download="waypoints.json"; document.body.appendChild(a); a.click(); a.remove();
+  $("#bmsg").textContent = "If nothing downloaded, use Copy JSON and save it as waypoints.json.";
+};
+function bimport(d){ const n = norm(d); B = n.waypoints.map(w=>({name:String(w.name||"Waypoint"),x:w.x,y:w.y??64,z:w.z,dim:w.dim||"minecraft_overworld",color:w.color||"#ff6aa8",...(w.note?{note:w.note}:{})})); R=n.regions.map(x=>({...x})); $("#btu").value=n.tileUrl; brender(); rrender(); }
+$("#bload").onclick = () => { try { bimport(JSON.parse($("#bout").value)); $("#bmsg").textContent="Imported."; } catch(e){ $("#bmsg").textContent="That isn’t valid JSON."; } };
+$("#bsite").onclick = () => { bimport(DATA); $("#bmsg").textContent="Loaded the site’s current waypoints."; };
+
+function rrender(){
+  $("#bout").value = bjson();
+  try { localStorage.setItem("pwreg", JSON.stringify(R)); } catch(e){}
+  const box = $("#rl"); box.textContent = "";
+  R.forEach((r,i)=>{
+    const row = document.createElement("div"); row.className="wp";
+    const n = document.createElement("span"); n.className="n"; n.textContent=r.name;
+    const sm = document.createElement("small"); sm.textContent=r.x1+","+r.z1+" → "+r.x2+","+r.z2+" · "+r.dim; n.appendChild(sm);
+    const del = document.createElement("button"); del.textContent="✕"; del.onclick=()=>{ R.splice(i,1); rrender(); };
+    row.append(n,del); box.appendChild(row);
+  });
+}
+$("#radd").onclick = () => {
+  const a=+$("#rx1").value||0,b=+$("#rz1").value||0,c=+$("#rx2").value||0,d=+$("#rz2").value||0;
+  const x1=Math.min(a,c),x2=Math.max(a,c),z1=Math.min(b,d),z2=Math.max(b,d);
+  if (x2-x1<1||z2-z1<1) return;
+  const lx = R.length ? Math.max(...R.map(r=>r.lx+(r.x2-r.x1)))+200 : 0;
+  R.push({name:$("#rn").value.trim()||"Region "+(R.length+1),dim:$("#rw").value,x1,z1,x2,z2,lx,ly:0});
+  $("#rn").value=""; rrender();
+};
+
+// custom reassembled map
+let V = {x:30,y:30,k:.3}, drag = null;
+const vst = $("#vstage"), vp = $("#vport");
+const vdraft = () => $("#vdraft").checked || $("#varr").checked;
+const vregs = () => vdraft() ? R : DATA.regions;
+function vapply(){ vst.style.transform="translate("+V.x+"px,"+V.y+"px) scale("+V.k+")"; vst.style.setProperty("--inv",1/V.k); }
+function vlist(wps,regs,pm){
+  const box=$("#wpo"); box.textContent="";
+  if(!wps.length){ box.textContent="No waypoints yet."; return; }
+  wps.forEach(p=>{
+    const r=regs.find(r=>(p.dim||"minecraft_overworld")===r.dim&&p.x>=r.x1&&p.x<r.x2&&p.z>=r.z1&&p.z<r.z2);
+    const b=document.createElement("button"); b.className="wchip";
+    const dot=document.createElement("i"); dot.style.background=p.color||"#ff6aa8";
+    b.append(dot,document.createTextNode(p.name));
+    if(!r){ b.disabled=true; b.title="Outside the regions"; }
+    else b.onclick=()=>{ const rc=vp.getBoundingClientRect(); V.k=Math.max(V.k,.6); V.x=rc.width/2-(r.lx+p.x-r.x1)*V.k; V.y=rc.height/2-(r.ly+p.z-r.z1)*V.k; vapply(); const pin=pm.get(p); if(pin){ pin.classList.add("hl"); setTimeout(()=>pin.classList.remove("hl"),2500); } };
+    box.appendChild(b);
+  });
+}
+function vrender(){
+  const regs = vregs(), wps = vdraft() ? B : DATA.waypoints, tpl = vdraft() ? ($("#btu").value||TILE0) : DATA.tileUrl;
+  vst.textContent = ""; $("#vhint").hidden = regs.length>0; const pm = new Map();
+  regs.forEach((r,i)=>{
+    const d = document.createElement("div"); d.className="reg"; d.dataset.i=i;
+    d.style.cssText="left:"+r.lx+"px;top:"+r.ly+"px;width:"+(r.x2-r.x1)+"px;height:"+(r.z2-r.z1)+"px";
+    const t = document.createElement("div"); t.className="tiles"; d.appendChild(t);
+    const x0=Math.floor(r.x1/512),x1=Math.floor((r.x2-1)/512),z0=Math.floor(r.z1/512),z1=Math.floor((r.z2-1)/512);
+    if ((x1-x0+1)*(z1-z0+1)<=400) for (let tx=x0;tx<=x1;tx++) for (let tz=z0;tz<=z1;tz++){
+      const im = new Image(); im.className="tile"; im.loading="lazy"; im.draggable=false; im.width=512; im.height=512;
+      im.style.left=(tx*512-r.x1)+"px"; im.style.top=(tz*512-r.z1)+"px";
+      im.onerror=()=>im.remove();
+      im.src = tpl.replace("{world}",r.dim).replace("{x}",tx).replace("{z}",tz); t.appendChild(im);
+    }
+    const lb = document.createElement("div"); lb.className="rlabel"; lb.textContent=r.name; d.appendChild(lb);
+    wps.forEach(p=>{
+      if ((p.dim||"minecraft_overworld")!==r.dim||p.x<r.x1||p.x>=r.x2||p.z<r.z1||p.z>=r.z2) return;
+      const pin = document.createElement("div"); pin.className="pin"; pin.style.left=(p.x-r.x1)+"px"; pin.style.top=(p.z-r.z1)+"px";
+      const dot = document.createElement("i"); dot.style.background=p.color||"#ff6aa8";
+      const sp = document.createElement("span"); sp.textContent=p.name; pin.append(dot,sp); d.appendChild(pin); pm.set(p,pin);
+    });
+    vst.appendChild(d);
+  });
+  vlist(wps,regs,pm); vapply();
+}
+function vfit(){
+  const regs = vregs(); if (!regs.length) return;
+  const x0=Math.min(...regs.map(r=>r.lx)), y0=Math.min(...regs.map(r=>r.ly));
+  const bw=Math.max(...regs.map(r=>r.lx+r.x2-r.x1))-x0, bh=Math.max(...regs.map(r=>r.ly+r.z2-r.z1))-y0;
+  const rc = vp.getBoundingClientRect();
+  V.k = Math.max(.01, Math.min((rc.width-100)/bw,(rc.height-120)/bh,2));
+  V.x = (rc.width-bw*V.k)/2 - x0*V.k; V.y = (rc.height-bh*V.k)/2 - y0*V.k + 20; vapply();
+}
+$("#vfit").onclick = vfit;
+$("#vshow").onchange = () => { vst.classList.toggle("nopins",!$("#vshow").checked); $("#wpo").hidden = !$("#vshow").checked; };
+$("#vdraft").onchange = () => { vrender(); vfit(); };
+$("#varr").onchange = () => { if ($("#varr").checked) $("#vdraft").checked = true; vp.classList.toggle("arr",$("#varr").checked); vrender(); };
+vp.addEventListener("pointerdown", e => {
+  const rg = e.target.closest(".reg");
+  drag = ($("#varr").checked && rg) ? {r:R[+rg.dataset.i],el:rg,x:e.clientX,y:e.clientY} : {pan:true,x:e.clientX,y:e.clientY};
+  vp.setPointerCapture(e.pointerId);
+});
+vp.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY;
+  if (drag.pan){ V.x+=dx; V.y+=dy; vapply(); }
+  else { drag.r.lx=Math.round(drag.r.lx+dx/V.k); drag.r.ly=Math.round(drag.r.ly+dy/V.k); drag.el.style.left=drag.r.lx+"px"; drag.el.style.top=drag.r.ly+"px"; }
+});
+vp.addEventListener("pointerup", () => { if (drag && !drag.pan) rrender(); drag = null; });
+vp.addEventListener("wheel", e => {
+  e.preventDefault();
+  const rc=vp.getBoundingClientRect(), mx=e.clientX-rc.left, my=e.clientY-rc.top;
+  const nk=Math.min(8,Math.max(.01,V.k*(e.deltaY<0?1.15:1/1.15)));
+  V.x=mx-(mx-V.x)*nk/V.k; V.y=my-(my-V.y)*nk/V.k; V.k=nk; vapply();
+},{passive:false});
+
+(async () => {
+  let d = null;
+  try { const r = await fetch("waypoints.json",{cache:"no-store"}); if (r.ok) d = await r.json(); } catch(e){}
+  DATA = norm(d || inline());
+  render(); if (!B.length) bimport(DATA); else { try{ R=JSON.parse(localStorage.getItem("pwreg")||"[]"); }catch(e){} $("#btu").value=DATA.tileUrl; brender(); } rrender();
+  route();
+})();
+</script>
+</body>
+</html>
