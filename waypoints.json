@@ -104,17 +104,25 @@
       "z": 0,
       "dim": "minecraft_overworld",
       "color": "#700000"
+    },
+    {
+      "name": "/pw SamaShop",
+      "x": -13610,
+      "y": 64,
+      "z": 0,
+      "dim": "minecraft_overworld",
+      "color": "#2e35ff"
     }
   ],
   "regions": [
     {
-      "name": "Main",
+      "name": "Region 2",
       "dim": "minecraft_overworld",
-      "x1": -25000,
-      "z1": -25000,
-      "x2": 25000,
-      "z2": 25000,
-      "lx": 0,
+      "x1": -1000,
+      "z1": -1000,
+      "x2": 1000,
+      "z2": 1000,
+      "lx": 50200,
       "ly": 0
     }
   ]
