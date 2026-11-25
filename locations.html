@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Locations | /pw Highway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Saira:ital,wdth,wght@0,50..125,100..900;1,50..125,100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="brand" href="index.html">/pw <span>Highway</span></a>
+  <button class="menu-btn" aria-expanded="false">Menu</button>
+  <nav aria-label="Main"><ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="locations.html" aria-current="page">Locations</a></li>
+    <li><a href="progress.html">Progress</a></li>
+    <li><a href="history.html">History</a></li>
+    <li><a href="rules.html">Rules</a></li>
+    <li><a href="apply.html">Forum</a></li>
+    <li><a href="credits.html">Credits</a></li>
+  </ul></nav>
+</div></header>
+<main><div class="wrap">
+  <h1>Locations</h1>
+  <p>Stops along the Highway, in order from -X to +X.</p>
+  <div class="mapbox"><div id="map"></div></div>
+  <div class="filters" id="filters" aria-label="Filter by type"></div>
+  <ul class="route" id="route"></ul>
+</div></main>
+<footer><div class="wrap">/pw Highway On Lotus</div></footer>
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
