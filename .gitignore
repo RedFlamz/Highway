@@ -1,0 +1,12 @@
+# Not part of the website - kept locally, not uploaded to GitHub.
+#   tools/update-map.ps1           rebuilds images/map.jpg and images/hero.jpg
+#   tools/update-roads.ps1         rebuilds js/claims.js
+#   tools/player-proxy-worker.js   code for the Cloudflare Worker (lives on Cloudflare, not on the site)
+tools/
+*.ps1
+
+# Editor / OS clutter
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
