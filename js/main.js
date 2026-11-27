@@ -638,7 +638,7 @@ if (route) {
   }
 
   // ================= Navigation: follow a player and give turn-by-turn directions =================
-  const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pollSeconds: 2, arriveDistance: 16, snapMax: 4000, gapLink: 150, jog: 250 },
+  const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pollSeconds: 2, arriveDistance: 16, snapMax: 4000, gapLink: 250, jog: 250 },
     typeof NAV_SETTINGS === "undefined" ? {} : NAV_SETTINGS);
   const navForm = document.getElementById("nav-form"), navName = document.getElementById("nav-name");
   const navDest = document.getElementById("nav-dest"), navCoords = document.getElementById("nav-coords");
