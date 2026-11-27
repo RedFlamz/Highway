@@ -46,7 +46,7 @@ const ROAD_SETTINGS = {
 // roadSpeed / offroadSpeed: blocks per second, used for the route choice and arrival time
 //   (about 40 = boat on packed ice, 6 = sprinting).
 const NAV_SETTINGS = {
-  playerFeed: "",
+  playerFeed: "https://navigation.was-2011.workers.dev/",
   roadSpeed: 40,
   offroadSpeed: 6,
   pollSeconds: 2,
