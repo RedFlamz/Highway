@@ -50,6 +50,20 @@
     </div>
     <span class="map-hint" id="map-hint">Click a dot for details.</span>
   </div>
+  <!-- Road editor: only shown when the page is opened with ?edit (e.g. locations.html?edit) -->
+  <div class="edit-panel" id="edit-panel" hidden>
+    <strong>Road editor</strong>
+    <p class="edit-msg" id="edit-msg">Make a road go further (or stop sooner): click <b>Set road end</b>, click the end of the road, then click where it should end.</p>
+    <div class="edit-actions">
+      <button type="button" class="nav-go" id="edit-start">Set road end</button>
+      <button type="button" class="edit-secondary" id="edit-clear" hidden>Clear previews</button>
+    </div>
+    <div class="edit-out" id="edit-out" hidden>
+      <p>To keep it, paste into <code>ROAD_EXTENSIONS</code> in <code>js/data.js</code>:</p>
+      <pre id="edit-snippet"></pre>
+      <button type="button" class="edit-secondary" id="edit-copy">Copy</button>
+    </div>
+  </div>
   <div class="mapbox"><div id="map" hidden></div><div id="live"></div>
     <div class="nav-banner" id="nav-banner" hidden></div>
   </div>

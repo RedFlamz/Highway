@@ -199,6 +199,16 @@ section{margin-bottom:3.5rem}
 #live .nav-here:hover{background:#1557b0}
 @media(max-width:640px){.nav-banner{left:12px} #nav-name,#nav-dest{width:100%} .nav-field{flex:1 1 100%}}
 
+/* Road editor (?edit) */
+.edit-panel{border:2px dashed #1a73e8;border-radius:var(--radius);background:var(--card);padding:.9rem 1.1rem;margin:0 0 1rem}
+.edit-panel[hidden],.edit-out[hidden],.edit-secondary[hidden]{display:none}
+.edit-msg{margin:.35rem 0 .7rem;font-size:.95rem;max-width:none}
+.edit-actions{display:flex;gap:.6rem;flex-wrap:wrap}
+.edit-secondary{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:99px;padding:.5rem 1.1rem;cursor:pointer}
+.edit-out{margin-top:.8rem} .edit-out p{margin:0 0 .4rem;font-size:.9rem}
+.edit-out pre{margin:0 0 .5rem;padding:.6rem .8rem;background:var(--petal-soft);border-radius:8px;font-size:.85rem;overflow-x:auto;white-space:pre}
+#live.picking,#live.picking .leaflet-interactive{cursor:crosshair}
+
 /* Route / timeline */
 .route{list-style:none;margin:0;padding:0 0 0 2.2rem;position:relative}
 .route::before{content:"";position:absolute;left:7px;top:8px;bottom:8px;border-left:3px dashed var(--petal)}

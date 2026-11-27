@@ -201,6 +201,7 @@ if (route) {
       .forEach(([n, z]) => liveMap.createPane(n).style.zIndex = z);
     liveMap.getPane("route").style.pointerEvents = "none";
     liveMap.on("dragstart", () => { if (nav.active) setFollow(false); });
+    liveMap.on("click", e => { if (edit.step) editClick(e); });
     liveMap.getPane("roadLabels").style.pointerEvents = "none";
     liveLayer = L_.layerGroup().addTo(liveMap);
     liveMap.fitBounds(L_.latLngBounds(ll(-X, -Z / 2), ll(X, Z / 2)));
@@ -225,6 +226,8 @@ if (route) {
     return Math.hypot(x - cx, z - cz);
   };
   const touches = (a, b) => [a.from, a.to].some(p => distToRoad(p, b) <= 20) || [b.from, b.to].some(p => distToRoad(p, a) <= 20);
+
+  const previewExtensions = [];                              // end points being tried out with ?edit (not saved)
 
   // Turn claims (js/claims.js) into roads using ROAD_SETTINGS and IGNORE_CLAIMS from data.js
   function buildRoads() {
@@ -308,6 +311,23 @@ if (route) {
       return !isDetour(a, b);
     });
     snap(roads);
+
+    // 3. hand-set end points (ROAD_EXTENSIONS in data.js, plus any being previewed with ?edit):
+    //    the road end nearest `near` is moved along the road to line up with `to`
+    const exts = [...(typeof ROAD_EXTENSIONS === "undefined" ? [] : ROAD_EXTENSIONS), ...previewExtensions];
+    exts.forEach(e => {
+      let best = null, bd = 300;
+      roads.forEach(r => ["a1", "a2"].forEach(k => {
+        const p = r.dir === "EW" ? [r[k], r.c] : [r.c, r[k]];
+        const d = Math.hypot(p[0] - e.near[0], p[1] - e.near[1]);
+        if (d < bd) { bd = d; best = { r, k }; }
+      }));
+      if (!best) return;
+      best.r[best.k] = Math.round(best.r.dir === "EW" ? e.to[0] : e.to[1]);
+      if (best.r.a1 > best.r.a2) [best.r.a1, best.r.a2] = [best.r.a2, best.r.a1];
+    });
+    if (exts.length) snap(roads);
+
     return roads.sort((a, b) => (b.a2 - b.a1) - (a.a2 - a.a1)).map(r => ({
       dir: r.dir, owner: r.owner, width: r.width,
       from: r.dir === "EW" ? [r.a1, r.c] : [r.c, r.a1], to: r.dir === "EW" ? [r.a2, r.c] : [r.c, r.a2] }));
@@ -371,12 +391,21 @@ if (route) {
     });
     return roads;
   }
-  const namedRoads = nameRoads();
-  let roadLines = [], labelLayer = null;
+  let namedRoads = nameRoads();
+  let roadLines = [], labelLayer = null, roadsLayer = null;
+
+  // Rebuild roads from scratch (used when previewing a new end point with ?edit)
+  function redrawRoads() {
+    namedRoads = nameRoads();
+    if (!liveMap) return;
+    drawRoads();
+  }
 
   function drawRoads() {
     const ll = (x, z) => L_.latLng(-z / 8, x / 8);
     roadLines = [];
+    if (roadsLayer) roadsLayer.clearLayers(); else roadsLayer = L_.layerGroup().addTo(liveMap);
+    const firstDraw = !labelLayer;
     const fallback = !namedRoads.length;                    // no claims.js / no roads: draw the stops' branches instead
     const roads = fallback
       ? [{ from: [-X, 0], to: [X, 0], width: 10, major: true },
@@ -387,7 +416,7 @@ if (route) {
     ["case", "fill"].forEach(part => ordered.forEach(r => {
       const line = L_.polyline([ll(...r.from), ll(...r.to)], {
         className: `road-${part} ${r.major ? "major" : "minor"}`, interactive: part === "fill" && !fallback, pane: "roads"
-      }).addTo(liveMap);
+      }).addTo(roadsLayer);
       // click a road to see its name and a point on it (handy for ROAD_NAMES / IGNORE_CLAIMS in data.js)
       if (part === "fill" && !fallback) {
         const mid = [Math.round((r.from[0] + r.to[0]) / 2), Math.round((r.from[1] + r.to[1]) / 2)];
@@ -410,12 +439,14 @@ if (route) {
         ends.push(p);
         L_.circleMarker(ll(...p), { radius: 5, weight: 2.5, className: "road-end", pane: "dots" })
           .bindTooltip(`End of ${r.name}<br>X: ${p[0]}, Z: ${p[1]}`, { direction: "top", offset: [0, -6], className: "road-end-tip" })
-          .addTo(liveMap);
+          .addTo(roadsLayer);
       }));
     }
-    labelLayer = L_.layerGroup().addTo(liveMap);
-    liveMap.on("zoomend", styleRoads);
-    liveMap.on("moveend", labelRoads);
+    if (firstDraw) {
+      labelLayer = L_.layerGroup().addTo(liveMap);
+      liveMap.on("zoomend", styleRoads);
+      liveMap.on("moveend", labelRoads);
+    }
     styleRoads(); labelRoads();
   }
 
@@ -546,6 +577,65 @@ if (route) {
     if (b && b.dataset.view !== view) setView(b.dataset.view);
   });
   const currentList = () => LOCATIONS.filter(l => current === "All" || l.type === current);
+
+  // ================= Road editor (?edit): set where a road ends =================
+  const editPanel = document.getElementById("edit-panel");
+  const edit = { step: 0, from: null, lines: [], marker: null };
+  const editMsg = text => { document.getElementById("edit-msg").innerHTML = text; };
+  if (editPanel && /[?&#]edit\b/.test(location.search + location.hash)) {
+    editPanel.hidden = false;
+    document.getElementById("edit-start").addEventListener("click", () => {
+      if (!liveMap) { editMsg("The live map is still loading, try again in a moment."); return; }
+      edit.step = 1;
+      live.classList.add("picking");
+      editMsg("<b>Step 1:</b> click the end of the road you want to change (a white end dot, or where the road stops).");
+    });
+    document.getElementById("edit-clear").addEventListener("click", () => {
+      previewExtensions.length = 0; edit.lines = [];
+      document.getElementById("edit-out").hidden = true;
+      document.getElementById("edit-clear").hidden = true;
+      redrawRoads();
+      editMsg("Previews cleared.");
+    });
+    document.getElementById("edit-copy").addEventListener("click", e => {
+      const text = document.getElementById("edit-snippet").textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => {
+        e.target.textContent = "Copied!"; setTimeout(() => e.target.textContent = "Copy", 1500);
+      });
+    });
+  }
+
+  function editClick(e) {
+    liveMap.closePopup();
+    const x = Math.round(e.latlng.lng * 8), z = Math.round(-e.latlng.lat * 8);
+    const ll = p => L_.latLng(-p[1] / 8, p[0] / 8);
+    if (edit.step === 1) {
+      // nearest road end on screen
+      let best = null, bd = 40;
+      namedRoads.forEach(r => [r.from, r.to].forEach(p => {
+        const d = liveMap.latLngToContainerPoint(ll(p)).distanceTo(e.containerPoint);
+        if (d < bd) { bd = d; best = { r, p }; }
+      }));
+      if (!best) { editMsg("<b>Step 1:</b> that's not near a road end. Click closer to where the road stops (zoom in if it helps)."); return; }
+      edit.from = best; edit.step = 2;
+      if (edit.marker) edit.marker.remove();
+      edit.marker = L_.circleMarker(ll(best.p), { radius: 9, weight: 3, color: "#1a73e8", fillColor: "#fff", fillOpacity: 1, pane: "dots" }).addTo(liveMap);
+      editMsg(`<b>Step 2:</b> click where <b>${best.r.name}</b> should end. It stays straight (${best.r.dir === "EW" ? "east-west, so only the X counts" : "north-south, so only the Z counts"}).`);
+      return;
+    }
+    // step 2: the new end
+    const { r, p } = edit.from;
+    const to = r.dir === "EW" ? [x, p[1]] : [p[0], z];
+    previewExtensions.push({ near: p.slice(), to });
+    edit.lines.push(`  { near: [${p[0]}, ${p[1]}], to: [${to[0]}, ${to[1]}] },   // ${r.name}`);
+    redrawRoads();
+    edit.step = 0; live.classList.remove("picking");
+    if (edit.marker) { edit.marker.remove(); edit.marker = null; }
+    document.getElementById("edit-snippet").textContent = edit.lines.join("\n");
+    document.getElementById("edit-out").hidden = false;
+    document.getElementById("edit-clear").hidden = false;
+    editMsg(`Previewing <b>${r.name}</b> ending at X ${to[0]}, Z ${to[1]}. This is only on your screen until you add it to data.js. Click <b>Set road end</b> to change another.`);
+  }
 
   // ================= Navigation: follow a player and give turn-by-turn directions =================
   const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pollSeconds: 2, arriveDistance: 15, snapMax: 4000, gapLink: 150, jog: 250 },

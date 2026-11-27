@@ -52,6 +52,18 @@ const NAV_SETTINGS = {
   pollSeconds: 2,
 };
 
+// Hand-set road end points, for roads whose claims stop short (or run too far).
+// near: the current end of the road (any point within ~300 blocks of it)
+// to:   where it should end. The road stays straight, so only the X (east-west road) or
+//       Z (north-south road) of `to` is used.
+// Easiest way to make these: open locations.html?edit, click "Set road end", click the road's end,
+// then click where it should end - the page shows the exact line to paste here.
+const ROAD_EXTENSIONS = [
+   { near: [-1, 84], to: [-1, 8] },   // LH10
+  { near: [-13609, 2044], to: [-13609, 2606] },   // LH305
+  { near: [11081, -9166], to: [11081, -9386] },   // LH105
+];
+
 // Claims that should NOT be road. Put any [x, z] point inside the claim.
 // Tip: hover the live map to read coordinates at the bottom left, or click a road to see a point on it.
 const IGNORE_CLAIMS = [
