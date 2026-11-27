@@ -230,6 +230,14 @@ section{margin-bottom:3.5rem}
 .edit-out{margin-top:.8rem} .edit-out p{margin:0 0 .4rem;font-size:.9rem}
 .edit-out pre{margin:0 0 .5rem;padding:.6rem .8rem;background:var(--petal-soft);border-radius:8px;font-size:.85rem;overflow-x:auto;white-space:pre}
 #live.picking,#live.picking .leaflet-interactive{cursor:crosshair}
+.edit-path-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.6rem;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--line)}
+.edit-path-form[hidden]{display:none}
+.edit-actions button:disabled{opacity:.5;cursor:default}
+#live .path-line{cursor:pointer}
+#live .path-label span{font-size:11px;font-weight:600}
+#live .path-label span.path{color:#5c3612}
+#live .path-label span.construction{color:#8a5300}
+#live .path-label span.closed{color:#a3231a}
 
 /* Route / timeline */
 .route{list-style:none;margin:0;padding:0 0 0 2.2rem;position:relative}

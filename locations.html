@@ -57,18 +57,40 @@
     </div>
     <span class="map-hint" id="map-hint">Click a dot for details.</span>
   </div>
-  <!-- Road editor: only shown when the page is opened with ?edit (e.g. locations.html?edit) -->
+  <!-- Map editor (road ends, walking/elytra paths): only shown when the page is opened with ?edit (e.g. locations.html?edit) -->
   <div class="edit-panel" id="edit-panel" hidden>
-    <strong>Road editor</strong>
-    <p class="edit-msg" id="edit-msg">Make a road go further (or stop sooner): click <b>Set road end</b>, click the end of the road, then click where it should end.</p>
+    <strong>Map editor</strong>
+    <p class="edit-msg" id="edit-msg"><b>Set road end</b>: make a road go further (or stop sooner).
+      <b>Draw path</b>: add a path, a road under construction or a closed road by clicking along it.</p>
     <div class="edit-actions">
       <button type="button" class="nav-go" id="edit-start">Set road end</button>
+      <button type="button" class="nav-go" id="edit-path">Draw path</button>
       <button type="button" class="edit-secondary" id="edit-clear" hidden>Clear previews</button>
+    </div>
+    <div class="edit-path-form" id="edit-path-form" hidden>
+      <label class="nav-field">Path name
+        <input id="edit-path-name" maxlength="40" placeholder="e.g. Spawn Walkway">
+      </label>
+      <label class="nav-field">Status
+        <select id="edit-path-type">
+          <option value="path">Path</option>
+          <option value="construction">Under construction</option>
+          <option value="closed">Closed road</option>
+        </select>
+      </label>
+      <button type="button" class="edit-secondary" id="edit-path-undo">Undo point</button>
+      <button type="button" class="edit-secondary" id="edit-path-cancel">Cancel</button>
+      <button type="button" class="nav-go" id="edit-path-done">Finish path</button>
     </div>
     <div class="edit-out" id="edit-out" hidden>
       <p>To keep it, paste into <code>ROAD_EXTENSIONS</code> in <code>js/data.js</code>:</p>
       <pre id="edit-snippet"></pre>
       <button type="button" class="edit-secondary" id="edit-copy">Copy</button>
+    </div>
+    <div class="edit-out" id="edit-out-paths" hidden>
+      <p>To keep it, paste into <code>PATHS</code> in <code>js/data.js</code>:</p>
+      <pre id="edit-path-snippet"></pre>
+      <button type="button" class="edit-secondary" id="edit-path-copy">Copy</button>
     </div>
   </div>
   <div class="mapbox"><div id="map" hidden></div><div id="live"></div>

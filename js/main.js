@@ -394,9 +394,35 @@ if (route) {
   let namedRoads = nameRoads();
   let roadLines = [], labelLayer = null, roadsLayer = null;
 
+  // ---- Paths: drawn by hand (PATHS in data.js, plus any being drawn with ?edit) ----
+  // status "path" = walk/fly along it, "construction" = road under construction, "closed" = closed road.
+  // `type` below holds the status. `note` is added after the name on the map and in directions.
+  const PATH_KIND = {
+    path:         { label: "path", note: "", routable: true,  color: "#7a4a1e", dash: "1 8",  weight: 4 },
+    construction: { label: "road under construction", note: "under construction", routable: true,
+                    color: "#f29900", dash: "10 7", weight: 5 },
+    closed:       { label: "closed road", note: "closed", routable: false, color: "#d93025", dash: "6 6", weight: 4 },
+  };
+  const previewPaths = [];                                   // paths being drawn with ?edit (not saved)
+  const escHTML = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const pathLen = p => p.points.reduce((t, q, i) => i ? t + Math.hypot(q[0] - p.points[i - 1][0], q[1] - p.points[i - 1][1]) : 0, 0);
+  // the name with its status, e.g. "LH10 (under construction)" - unless the name already says so
+  const pathTitle = p => { const n = PATH_KIND[p.type].note; return n && !p.name.toLowerCase().includes(n) ? `${p.name} (${n})` : p.name; };
+  function readPaths() {
+    return [...(typeof PATHS === "undefined" ? [] : PATHS), ...previewPaths]
+      .filter(p => p && Array.isArray(p.points) && p.points.length >= 2)
+      .map(p => {
+        const type = PATH_KIND[p.status] ? p.status : "path";    // older entries with type "walk"/"elytra" are plain paths
+        return { ...p, type, path: true, name: p.name || (type === "path" ? "Path" : "Road"),
+                 points: p.points.map(q => [+q[0], +q[1]]) };
+      });
+  }
+  let namedPaths = readPaths();
+
   // Rebuild roads from scratch (used when previewing a new end point with ?edit)
   function redrawRoads() {
     namedRoads = nameRoads();
+    namedPaths = readPaths();
     if (!liveMap) return;
     drawRoads();
   }
@@ -429,6 +455,20 @@ if (route) {
       }
       roadLines.push({ line, part, r });
     }));
+    // paths (orange dots), roads under construction (amber dashes), closed roads (red dashes),
+    // on a thin white edge so they show on any terrain
+    namedPaths.forEach(p => {
+      const k = PATH_KIND[p.type], pts = p.points.map(q => ll(...q));
+      L_.polyline(pts, { pane: "roads", color: "#fff", weight: k.weight + 3, opacity: 0.85, lineCap: "round", lineJoin: "round", interactive: false })
+        .addTo(roadsLayer);
+      L_.polyline(pts, { pane: "roads", color: k.color, weight: k.weight, dashArray: k.dash, lineCap: "round", lineJoin: "round", className: "path-line" })
+        .bindPopup(`<strong>${escHTML(pathTitle(p))}</strong><span class="coords">${k.label[0].toUpperCase() + k.label.slice(1)}, ` +
+          `${Math.round(pathLen(p)).toLocaleString()} blocks long</span>` +
+          (k.routable ? "" : `<p>Directions won't use it.</p>`) +
+          `<p>From X ${p.points[0][0]}, Z ${p.points[0][1]} to X ${p.points.at(-1)[0]}, Z ${p.points.at(-1)[1]}.</p>`,
+          { className: "live-popup", maxWidth: 280 })
+        .addTo(roadsLayer);
+    });
     // end dots: road ends that don't meet another road or a stop
     if (!fallback) {
       const ends = [];
@@ -483,8 +523,24 @@ if (route) {
   function labelRoads() {
     labelLayer.clearLayers();
     const zoom = liveMap.getZoom();
-    if (zoom < -1.5 || !namedRoads.length) return;
+    if (zoom < -1.5) return;
     const ppb = 2 ** zoom / 8, view = liveMap.getBounds().pad(0.3), placed = [];
+    // path names: once, along the longest straight bit, kept upright
+    namedPaths.forEach(p => {
+      let bi = 1, bl = 0;
+      p.points.forEach((q, i) => { if (!i) return; const l = Math.hypot(q[0] - p.points[i - 1][0], q[1] - p.points[i - 1][1]); if (l > bl) { bl = l; bi = i; } });
+      const title = pathTitle(p);
+      if (bl * ppb < title.length * 6.5 + 30) return;       // too short on screen
+      const a = p.points[bi - 1], b = p.points[bi];
+      const at = L_.latLng(-(a[1] + b[1]) / 16, (a[0] + b[0]) / 16);
+      if (!view.contains(at)) return;
+      let rot = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+      if (rot > 90) rot -= 180; else if (rot < -90) rot += 180;
+      placed.push(liveMap.latLngToLayerPoint(at));
+      L_.marker(at, { pane: "roadLabels", interactive: false, keyboard: false,
+        icon: L_.divIcon({ className: "road-label path-label", iconSize: [0, 0],
+          html: `<span class="${p.type}" style="transform:translate(-50%,-50%) rotate(${rot.toFixed(1)}deg) translateY(-9px)">${escHTML(title)}</span>` }) }).addTo(labelLayer);
+    });
     namedRoads.forEach(r => {
       const num = shieldNumber(r.name);
       const len = roadLen(r) * ppb, textW = num ? 28 : r.name.length * 7.2 + 24;
@@ -580,33 +636,135 @@ if (route) {
 
   // ================= Road editor (?edit): set where a road ends =================
   const editPanel = document.getElementById("edit-panel");
-  const edit = { step: 0, from: null, lines: [], marker: null };
+  const edit = { step: 0, from: null, lines: [], marker: null, pts: [], pathLines: [], draft: null };
   const editMsg = text => { document.getElementById("edit-msg").innerHTML = text; };
+  const $id = id => document.getElementById(id);
   if (editPanel && /[?&#]edit\b/.test(location.search + location.hash)) {
     editPanel.hidden = false;
-    document.getElementById("edit-start").addEventListener("click", () => {
+    $id("edit-start").addEventListener("click", () => {
       if (!liveMap) { editMsg("The live map is still loading, try again in a moment."); return; }
+      if (edit.step === "path") cancelPath();
       edit.step = 1;
       live.classList.add("picking");
       editMsg("<b>Step 1:</b> click the end of the road you want to change (a white end dot, or where the road stops).");
     });
-    document.getElementById("edit-clear").addEventListener("click", () => {
+    $id("edit-path").addEventListener("click", () => {
+      if (!liveMap) { editMsg("The live map is still loading, try again in a moment."); return; }
+      if (edit.marker) { edit.marker.remove(); edit.marker = null; }
+      edit.step = "path"; edit.pts = [];
+      live.classList.add("picking");
+      liveMap.doubleClickZoom.disable();
+      $id("edit-path-form").hidden = false;
+      $id("edit-path").disabled = true;
+      drawDraft();
+      editMsg("<b>Drawing a path:</b> click along the path, one click at each corner. Paths go dead straight " +
+        "(north-south or east-west) from corner to corner; hold Shift while clicking for any angle. Clicks near a road or a stop snap onto it, " +
+        "so start and end the path on a road (or at a stop) so directions can use it. Then click <b>Finish path</b>.");
+    });
+    $id("edit-path-type").addEventListener("change", drawDraft);
+    $id("edit-path-undo").addEventListener("click", () => { edit.pts.pop(); drawDraft(); pathProgress(); });
+    $id("edit-path-cancel").addEventListener("click", () => { cancelPath(); editMsg("Path cancelled."); });
+    $id("edit-path-done").addEventListener("click", finishPath);
+    document.addEventListener("keydown", e => {
+      if (edit.step !== "path") return;
+      if (e.key === "Escape") { cancelPath(); editMsg("Path cancelled."); }
+      else if (e.key === "Enter" && e.target.tagName !== "BUTTON") { e.preventDefault(); finishPath(); }
+    });
+    $id("edit-clear").addEventListener("click", () => {
       previewExtensions.length = 0; edit.lines = [];
-      document.getElementById("edit-out").hidden = true;
-      document.getElementById("edit-clear").hidden = true;
+      previewPaths.length = 0; edit.pathLines = [];
+      $id("edit-out").hidden = true; $id("edit-out-paths").hidden = true;
+      $id("edit-clear").hidden = true;
       redrawRoads();
       editMsg("Previews cleared.");
     });
-    document.getElementById("edit-copy").addEventListener("click", e => {
-      const text = document.getElementById("edit-snippet").textContent;
+    const copier = (btn, pre) => $id(btn).addEventListener("click", e => {
+      const text = $id(pre).textContent;
       if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => {
         e.target.textContent = "Copied!"; setTimeout(() => e.target.textContent = "Copy", 1500);
       });
     });
+    copier("edit-copy", "edit-snippet"); copier("edit-path-copy", "edit-path-snippet");
+  }
+
+  // ---- drawing a path ----
+  function drawDraft() {
+    if (!liveMap) return;
+    if (edit.draft) edit.draft.clearLayers(); else edit.draft = L_.layerGroup().addTo(liveMap);
+    if (!edit.pts.length) return;
+    const k = PATH_KIND[$id("edit-path-type").value], pts = edit.pts.map(p => L_.latLng(-p[1] / 8, p[0] / 8));
+    L_.polyline(pts, { pane: "route", color: "#fff", weight: k.weight + 3, interactive: false }).addTo(edit.draft);
+    L_.polyline(pts, { pane: "route", color: k.color, weight: k.weight, dashArray: k.dash, lineCap: "round", interactive: false }).addTo(edit.draft);
+    pts.forEach((p, i) => L_.circleMarker(p, { pane: "dots", radius: i ? 4 : 6, weight: 2, color: k.color, fillColor: "#fff", fillOpacity: 1, interactive: false }).addTo(edit.draft));
+  }
+  function pathProgress() {
+    const n = edit.pts.length;
+    const len = Math.round(pathLen({ points: edit.pts }));
+    editMsg(n ? `<b>Drawing a path:</b> ${n} point${n === 1 ? "" : "s"}${n > 1 ? `, ${len.toLocaleString()} blocks` : ""}. ` +
+      `Keep clicking corners, then <b>Finish path</b> (or press Enter). <b>Undo point</b> removes the last one, Esc cancels.`
+      : "<b>Drawing a path:</b> click where the path starts.");
+  }
+  function endDrawing() {
+    edit.step = 0; edit.pts = [];
+    live.classList.remove("picking");
+    if (liveMap) liveMap.doubleClickZoom.enable();
+    if (edit.draft) edit.draft.clearLayers();
+    $id("edit-path-form").hidden = true;
+    $id("edit-path").disabled = false;
+  }
+  function cancelPath() { endDrawing(); }
+  function finishPath() {
+    if (edit.pts.length < 2) { editMsg("<b>Drawing a path:</b> a path needs at least two points. Click on the map to add them."); return; }
+    const type = $id("edit-path-type").value;
+    const name = $id("edit-path-name").value.trim() || (type === "path" ? "Path" : "Road");
+    const points = edit.pts.map(p => p.slice());
+    previewPaths.push({ name, status: type, points });
+    edit.pathLines.push(`  { name: ${JSON.stringify(name)}, status: "${type}", points: [${points.map(p => `[${p[0]}, ${p[1]}]`).join(", ")}] },`);
+    endDrawing();
+    redrawRoads();
+    $id("edit-path-snippet").textContent = edit.pathLines.join("\n");
+    $id("edit-out-paths").hidden = false;
+    $id("edit-clear").hidden = false;
+    $id("edit-path-name").value = "";
+    editMsg(`Previewing <b>${escHTML(name)}</b> (${PATH_KIND[type].label}, ${Math.round(pathLen({ points })).toLocaleString()} blocks). ` +
+      `It's only on your screen until you add it to data.js.` +
+      (PATH_KIND[type].routable ? " Directions can already use it, so you can test it now." : " Directions won't route through it."));
+  }
+  // Where a click lands: snapped onto a nearby stop, path corner or road (within 14 px on screen).
+  // Paths are perfectly straight: each piece runs exactly north-south or east-west from the last point
+  // (hold Shift while clicking for any angle).
+  function snapClick(e) {
+    const ll = p => L_.latLng(-p[1] / 8, p[0] / 8);
+    const px = p => liveMap.latLngToContainerPoint(ll(p)).distanceTo(e.containerPoint);
+    let raw = [e.latlng.lng * 8, -e.latlng.lat * 8];
+    const prev = edit.pts[edit.pts.length - 1];
+    const straight = prev && !(e.originalEvent && e.originalEvent.shiftKey);   // hold Shift for any angle
+    let lockX = false;                                       // true = this piece runs north-south (keeps prev's X)
+    if (straight) {
+      lockX = Math.abs(raw[1] - prev[1]) > Math.abs(raw[0] - prev[0]);
+      raw = lockX ? [prev[0], raw[1]] : [raw[0], prev[1]];
+    }
+    let best = null, bd = 14;
+    const consider = p => { const d = px(p); if (d < bd) { bd = d; best = p; } };
+    // exact points (stops, path corners) only when they're on the straight line
+    const onLine = p => !straight || (lockX ? Math.abs(p[0] - prev[0]) < 1 : Math.abs(p[1] - prev[1]) < 1);
+    LOCATIONS.forEach(l => onLine([l.x, l.z]) && consider([l.x, l.z]));
+    namedPaths.forEach(p => p.points.forEach(q => onLine(q) && consider(q)));
+    if (!best) namedRoads.forEach(r => {
+      if (!straight) return consider(projectOnRoad(raw, r));
+      // straight piece: stop where it meets a road crossing its line
+      const roadNS = r.dir === "NS";
+      if (roadNS === lockX) return;                          // parallel road: no meeting point
+      const hit = lockX ? [prev[0], r.from[1]] : [r.from[0], prev[1]];
+      if (distToRoad(hit, r) < 1) consider(hit);
+    });
+    if (!best && edit.pts.length > 2 && onLine(edit.pts[0])) consider(edit.pts[0]);   // close a loop
+    return (best || raw).map(Math.round);
   }
 
   function editClick(e) {
     liveMap.closePopup();
+    if (edit.step === "path") { edit.pts.push(snapClick(e)); drawDraft(); pathProgress(); return; }
     const x = Math.round(e.latlng.lng * 8), z = Math.round(-e.latlng.lat * 8);
     const ll = p => L_.latLng(-p[1] / 8, p[0] / 8);
     if (edit.step === 1) {
@@ -638,7 +796,7 @@ if (route) {
   }
 
   // ================= Navigation: follow a player and give turn-by-turn directions =================
-  const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pollSeconds: 2, arriveDistance: 16, snapMax: 4000, gapLink: 250, jog: 250 },
+  const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pathSpeed: 7, offroadDetour: 1, pollSeconds: 2, arriveDistance: 16, snapMax: 4000, gapLink: 250, jog: 250 },
     typeof NAV_SETTINGS === "undefined" ? {} : NAV_SETTINGS);
   const navForm = document.getElementById("nav-form"), navName = document.getElementById("nav-name");
   const navDest = document.getElementById("nav-dest"), navCoords = document.getElementById("nav-coords");
@@ -675,9 +833,11 @@ if (route) {
     };
     const along = (r, p) => r.dir === "EW" ? p[0] : p[1];
     const stationAt = (i, n) => { const p = projectOnRoad([n.x, n.z], namedRoads[i]); stations[i].push({ a: along(namedRoads[i], p), n }); };
+    // offroadDetour: count cross-country (no road or path) as this many times longer (1 = straight line)
     const link = (a, b, len, speed, road) => {
-      a.edges.push({ to: b, len, cost: len / speed, road });
-      b.edges.push({ to: a, len, cost: len / speed, road });
+      const cost = len / speed * (road ? 1 : NAV.offroadDetour);
+      a.edges.push({ to: b, len, cost, road });
+      b.edges.push({ to: a, len, cost, road });
     };
     // junctions: road ends, ends touching another road, and crossings
     namedRoads.forEach((r, i) => [r.from, r.to].forEach(e => {
@@ -692,7 +852,30 @@ if (route) {
         const n = node(x, z); stationAt(i, n); stationAt(j, n);
       }
     }));
-    // start and destination, joined off-road to nearby roads and to each other
+    // paths (and roads under construction): each straight bit is a segment; corners and ends near a road join it
+    const pathSegs = [];
+    namedPaths.forEach(p => {
+      if (!PATH_KIND[p.type].routable) return;                // closed roads are never used
+      const speed = NAV.pathSpeed;
+      p.points.forEach((q, k) => {
+        if (k) pathSegs.push({ p, speed, a: p.points[k - 1], b: q, list: [{ t: 0, n: node(...p.points[k - 1]) }, { t: 1, n: node(...q) }] });
+      });
+      p.points.forEach(q => {
+        const n = node(...q);
+        namedRoads.forEach((r, j) => {
+          const d = distToRoad(q, r);
+          if (d > NAV.gapLink) return;
+          const m = node(...projectOnRoad(q, r)); stationAt(j, m);
+          if (m !== n) link(n, m, d, NAV.offroadSpeed, null);
+        });
+      });
+    });
+    const projSeg = ([x, z], a, b) => {
+      const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz;
+      const t = l2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)) : 0;
+      return { t, p: [a[0] + dx * t, a[1] + dz * t] };
+    };
+    // start and destination, joined off-road to nearby roads and paths, and to each other
     const S = { x: start[0], z: start[1], edges: [], tag: "start" }, D = { x: dest[0], z: dest[1], edges: [], tag: "dest" };
     nodes.push(S, D);
     [S, D].forEach(p => {
@@ -700,6 +883,10 @@ if (route) {
         .map(s => ({ ...s, d: Math.hypot(s.p[0] - p.x, s.p[1] - p.z) }))
         .sort((a, b) => a.d - b.d).filter((s, k) => k < 3 || s.d <= NAV.snapMax);
       snaps.forEach(s => { const n = node(...s.p); stationAt(s.i, n); if (n !== p) link(p, n, s.d, NAV.offroadSpeed, null); });
+      pathSegs.map(s => ({ s, ...projSeg([p.x, p.z], s.a, s.b) }))
+        .map(o => ({ ...o, d: Math.hypot(o.p[0] - p.x, o.p[1] - p.z) }))
+        .sort((a, b) => a.d - b.d).filter((o, k) => k < 3 && o.d <= NAV.snapMax)
+        .forEach(o => { const n = node(...o.p); o.s.list.push({ t: o.t, n }); if (n !== p) link(p, n, o.d, NAV.offroadSpeed, null); });
     });
     link(S, D, Math.hypot(S.x - D.x, S.z - D.z), NAV.offroadSpeed, null);
     // road ends that stop just short of another road (unclaimed bit) connect with a short walk
@@ -719,6 +906,14 @@ if (route) {
         // junctions at the same spot along the road (e.g. a side road ending just beside it) still connect
         const len = Math.max(b.a - a.a, Math.hypot(a.n.x - b.n.x, a.n.z - b.n.z));
         if (a.n !== b.n && len > 0) link(a.n, b.n, len, NAV.roadSpeed, namedRoads[i]);
+      }
+    });
+    pathSegs.forEach(s => {
+      s.list.sort((x, y) => x.t - y.t);
+      const L = Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]);
+      for (let k = 1; k < s.list.length; k++) {
+        const a = s.list[k - 1], b = s.list[k], len = (b.t - a.t) * L;
+        if (a.n !== b.n && len > 0) link(a.n, b.n, len, s.speed, s.p);
       }
     });
     // Dijkstra
@@ -743,7 +938,7 @@ if (route) {
   // Names of other roads that meet the route at this junction (not counting walking links)
   function crossRoads(node, onName) {
     const names = new Set();
-    node.edges.forEach(e => { if (e.road && e.road.name !== onName) names.add(e.road.name); });
+    node.edges.forEach(e => { if (e.road && !e.road.path && e.road.name !== onName) names.add(e.road.name); });
     return [...names];
   }
 
@@ -752,12 +947,14 @@ if (route) {
     route.legs.forEach(l => {
       const v = [(l.to.x - l.from.x) / l.len, (l.to.z - l.from.z) / l.len];
       const last = steps[steps.length - 1];
-      const sameWay = last && last.road === l.road && (l.road === null || v[0] * last.v[0] + v[1] * last.v[1] > 0.98);
+      // a path is one step however much it bends
+      const onPath = !!(l.road && l.road.path);
+      const sameWay = last && last.road === l.road && (l.road === null || onPath || v[0] * last.v[0] + v[1] * last.v[1] > 0.98);
       // going straight through a junction with a differently named road gets its own step,
       // so the directions say "Continue straight past LH105"
-      const passing = l.road ? crossRoads(l.from, l.road.name) : [];
-      if (sameWay && !passing.length) { last.len += l.len; last.to = l.to; last.time += l.cost; }
-      else steps.push({ road: l.road, v, len: l.len, time: l.cost, from: l.from, to: l.to, passing });
+      const passing = l.road && !onPath ? crossRoads(l.from, l.road.name) : [];
+      if (sameWay && !passing.length) { last.len += l.len; last.to = l.to; last.time += l.cost; last.vEnd = v; }
+      else steps.push({ road: l.road, v, vEnd: v, len: l.len, time: l.cost, from: l.from, to: l.to, passing });
     });
     // tiny off-road hops (already standing on the road) aren't worth an instruction
     const kept = steps.filter(s => s.road || s.len >= 12 || steps.length === 1);
@@ -765,18 +962,27 @@ if (route) {
     const keep = [];
     kept.forEach(s => {
       const last = keep[keep.length - 1];
-      if (last && s.road && last.road && s.road.name === last.road.name && !(s.passing && s.passing.length) &&
+      if (last && s.road && last.road && !s.road.path && !last.road.path && s.road.name === last.road.name && !(s.passing && s.passing.length) &&
           (s.len < NAV.jog || last.jogged || last.len < NAV.jog) &&
           !(s.len >= NAV.jog && last.len >= NAV.jog && s.v[0] * last.mainV[0] + s.v[1] * last.mainV[1] < 0.9)) {
-        last.len += s.len; last.time += s.time; last.to = s.to; last.jogged = s.len < NAV.jog;
+        last.len += s.len; last.time += s.time; last.to = s.to; last.jogged = s.len < NAV.jog; last.vEnd = s.vEnd;
         if (s.len > last.mainLen) { last.mainV = s.v; last.mainLen = s.len; }
         return;
       }
       keep.push({ ...s, mainV: s.v, mainLen: s.len });
     });
-    keep.forEach(s => { if (s.road) s.v = s.mainV; });
+    keep.forEach(s => { if (s.road && !s.road.path) s.v = s.vEnd = s.mainV; });   // paths keep their first/last direction
     keep.forEach((s, k) => {
       const prevStep = keep[k - 1], dir = compass(s.to.x - s.from.x, s.to.z - s.from.z);
+      if (s.road && s.road.path) {
+        const first = compass(...s.v);
+        s.icon = s.road.type === "construction" ? "cone" : "walk";
+        const sameName = prevStep && prevStep.road && prevStep.road.name === s.road.name;   // e.g. LH10 carrying on as construction
+        s.text = s.road.type === "construction"
+          ? (sameName ? `Continue on ${pathTitle(s.road)}` : `Head ${first} on ${pathTitle(s.road)}`)
+          : `Walk ${first} along ${s.road.name}`;
+        return;
+      }
       if (!s.road) {
         s.icon = k === keep.length - 1 ? "flag" : "head";
         s.text = k === keep.length - 1
@@ -786,7 +992,8 @@ if (route) {
       }
       if (!prevStep) { s.icon = "head"; s.text = `Head ${dir} on ${s.road.name}`; return; }
       if (!prevStep.road) { s.icon = "join"; s.text = `Join ${s.road.name} heading ${dir}`; return; }
-      const cross = prevStep.v[0] * s.v[1] - prevStep.v[1] * s.v[0], dot = prevStep.v[0] * s.v[0] + prevStep.v[1] * s.v[1];
+      const pv = prevStep.vEnd || prevStep.v;               // the way you were going at the end of the last step
+      const cross = pv[0] * s.v[1] - pv[1] * s.v[0], dot = pv[0] * s.v[0] + pv[1] * s.v[1];
       const turn = dot > 0.9 ? "straight" : dot < -0.9 ? "uturn" : cross > 0 ? "right" : "left";
       s.icon = turn;
       const verb = { straight: "Continue", uturn: "Make a U-turn", right: "Turn right", left: "Turn left" }[turn];
@@ -806,6 +1013,9 @@ if (route) {
     right: "M15 4l6 5-6 5v-3H9a2 2 0 00-2 2v8H3v-8a6 6 0 016-6h6z",
     uturn: "M8 21V9a5 5 0 0110 0v4h3l-5 6-5-6h3V9a1 1 0 00-2 0v12z",
     flag: "M5 21V4h11l-1.5 3.5L16 11H7v10z",
+    // a walking figure, and a traffic cone (road under construction)
+    walk: "M13.5 5.5a2 2 0 100-4 2 2 0 000 4zM9.8 8.9L7 10.3V14h2v-2.4l1.2-.6L9 17l-3.6 3.6L6.8 22l4.2-4.2.6-2.6L14 17.5V22h2v-5.4l-2.3-2.3.6-3.1A6.5 6.5 0 0019 13.5v-2a4.6 4.6 0 01-4-2.3l-1-1.6A2 2 0 0011.6 7c-.6 0-1.2.3-1.8 1.9z",
+    cone: "M10.4 3h3.2l1 4H9.4zM9 9h6l.9 4H8.1zM7.6 15h8.8l1 4H21v2H3v-2h3.6z",
   };
   const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] || ICONS.head}" fill="currentColor"/></svg>`;
 
@@ -1205,7 +1415,10 @@ if (route) {
     }).join("") +
       `<li class="arrive"><span class="ns-icon">${icon("flag")}</span><span class="ns-text">Arrive at ${dest.name}</span></li>`;
     const moving = Math.hypot(...track.v);
-    navMessage(`${fmtBlocks(total)} to ${dest.name} · about ${fmtTime(time)} (boat on the Highway)` +
+    // boat on the Highway is the default, so only mention when part of the trip is off the boat
+    const how = [steps.some(s => s.road && s.road.type === "path") && "a path",
+      steps.some(s => s.road && s.road.type === "construction") && "a road under construction"].filter(Boolean);
+    navMessage(`${fmtBlocks(total)} to ${dest.name} · about ${fmtTime(time)}${how.length ? ` (includes ${how.join(" and ")})` : ""}` +
       (moving ? ` · moving ${Math.round(moving)} blocks/s` : "") + `. Position updates every ${NAV.pollSeconds}s.`, "ok");
     voice.arrived = false;
     announce(steps, dest, first || voice.key === null);

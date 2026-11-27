@@ -93,7 +93,7 @@ const CLAIMS = [
   { owner: "Brightnesss", x1: -947, z1: -954, x2: -751, z2: -706 },
   { owner: "RedFlamz", x1: 11076, z1: -9166, x2: 11086, z2: -3 },
   { owner: "Brightnesss", x1: -3995, z1: -5633, x2: -3711, z2: -5314 },
-  { owner: "RedFlamz", x1: 19645, z1: -6000, x2: 19655, z2: -2 },
+  { owner: "RedFlamz", x1: 19645, z1: -1350, x2: 19655, z2: -2 },
   { owner: "RedFlamz", x1: 11059, z1: -44, x2: 11076, z2: -3 },
   { owner: "Brightnesss", x1: 923, z1: -3549, x2: 970, z2: -3505 },
   { owner: "Brightnesss", x1: 953, z1: -3732, x2: 992, z2: -3692 },

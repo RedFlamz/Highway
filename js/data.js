@@ -45,12 +45,30 @@ const ROAD_SETTINGS = {
 //   Without it, browsers aren't allowed to read player positions from the Lotus map.
 // roadSpeed / offroadSpeed: blocks per second, used for the route choice and arrival time
 //   (about 40 = boat on packed ice, 6 = sprinting).
+// pathSpeed: blocks per second on the paths below (walking).
 const NAV_SETTINGS = {
   playerFeed: "https://navigation.was-2011.workers.dev/",
   roadSpeed: 40,
   offroadSpeed: 6,
+  pathSpeed: 7,
   pollSeconds: 2,
 };
+
+// ---------------- Paths ----------------
+// These are NOT made from claims: you draw them by hand. They show on the live map.
+// status: "path"         - a path you walk or fly along (used for directions)
+//         "construction" - a road that's under construction (used for directions, with a warning)
+//         "closed"       - a closed road (shown on the map, never used for directions)
+// points: the corners of the path in order, as [x, z]. Start or end a path on a road (or near a stop)
+//         so directions can use it.
+// Easiest way to make these: open locations.html?edit, click "Draw path", click along the path,
+// then "Finish path" - the page shows the exact lines to paste here.
+const PATHS = [
+  { name: "LH10", status: "construction", points: [[3, 3397], [3, 13885]] },
+    { name: "LH505", status: "construction", points: [[19650, -1350], [19650, -5949]] },
+  { name: "LH5 Connector", status: "closed", points: [[11241, -341], [11087, -341]] },
+  { name: "Old Forest Rd", status: "path", points: [[1712, -4], [1712, -682]] }
+];
 
 // Hand-set road end points, for roads whose claims stop short (or run too far).
 // near: the current end of the road (any point within ~300 blocks of it)
@@ -94,7 +112,8 @@ const ROAD_NAMES = [
   // branches
   { near: [11081, -4581],   name: "LH105",       major: false },
   { near: [-13609, 1023],   name: "LH305",       major: false },
-  { near: [19650, -2998],   name: "LH505",       major: false },  // north branch, no stop yet
+  { near: [19650, -1000],   name: "LH505",       major: false },  // north branch, no stop yet
+  
   
 ];
 
