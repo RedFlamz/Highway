@@ -638,7 +638,7 @@ if (route) {
   }
 
   // ================= Navigation: follow a player and give turn-by-turn directions =================
-  const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pollSeconds: 2, arriveDistance: 15, snapMax: 4000, gapLink: 150, jog: 250 },
+  const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pollSeconds: 2, arriveDistance: 16, snapMax: 4000, gapLink: 150, jog: 250 },
     typeof NAV_SETTINGS === "undefined" ? {} : NAV_SETTINGS);
   const navForm = document.getElementById("nav-form"), navName = document.getElementById("nav-name");
   const navDest = document.getElementById("nav-dest"), navCoords = document.getElementById("nav-coords");
@@ -834,8 +834,9 @@ if (route) {
   const voiceBox = document.getElementById("nav-voice");
   const canSpeak = "speechSynthesis" in window;
   const voice = { on: false, key: null, done: new Set(), arrived: false };
-  // blocks before a maneuver; the last one is big enough that a 2 s update (~80 blocks by boat) can't skip it
-  const SAY_AT = [1000, 300, 100];
+  // blocks before a maneuver: an early heads-up, then the "do it now" callout. The last one is big
+  // enough that a 2 s update (~80 blocks by boat) can't skip it, and short enough to still be on time.
+  const SAY_AT = [1000, 150];
   const lower = t => /^(LH\d|\/pw)/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1);
   const sayable = t => t.replace(/\bLH(\d+)/g, "Lotus Highway $1").replace(/\/pw\b/g, "slash P W")
     .replace(/\bX (-?\d+), Z (-?\d+)/g, "X $1, Z $2").replace(/(\d),(\d)/g, "$1$2");
@@ -896,8 +897,8 @@ if (route) {
   }
 
   // Called on every position update with the fresh route
-  // going straight through an intersection: only one callout, at 250 blocks
-  const PASS_AT = 250;
+  // going straight through an intersection: only one callout, as you reach it
+  const PASS_AT = 100;
   const isPass = s => !!(s && s.icon === "straight" && s.passing && s.passing.length);
   function announce(steps, dest, first) {
     if (!voice.on) return;
@@ -923,7 +924,7 @@ if (route) {
     const t = sayAt.find(t => d <= t && !voice.done.has(t));
     if (t === undefined) return;
     sayAt.filter(x => x >= t).forEach(x => voice.done.add(x));
-    if (pass) speak(`In ${roundSay(d)} blocks, ${what}.`);
+    if (pass) speak(`${next.text}.`);
     else if (t === SAY_AT[SAY_AT.length - 1]) speak(next ? `${next.text}.` : `Your destination, ${dest.name}, is ahead.`);
     else speak(next ? `In ${roundSay(d)} blocks, ${what}.` : `In ${roundSay(d)} blocks, you'll arrive at ${dest.name}.`);
   }
@@ -965,13 +966,14 @@ if (route) {
     }
 
     const toGo = Math.hypot(dest.x - p.x, dest.z - p.z);
+    // Arrived (within arriveDistance, 16 blocks): say so, then end navigation automatically
     if (toGo <= NAV.arriveDistance) {
-      nav.layer.clearLayers();
-      showBanner(`<div class="nb-icon">${icon("flag")}</div><div><div class="nb-main">You've arrived</div><div class="nb-sub">${dest.name}</div></div>`);
-      navSteps.hidden = true;
-      navMessage(`Arrived at ${dest.name}.`, "ok");
-      if (!voice.arrived) { voice.arrived = true; speak(`You have arrived at ${dest.name}.`); }
       if (nav.follow) liveMap.panTo(ll(...here));
+      speak(`You have arrived at ${dest.name}.`);
+      stopNav({ keepMessage: true, keepSpeech: true, keepBanner: true });
+      showBanner(`<div class="nb-icon">${icon("flag")}</div><div><div class="nb-main">You've arrived</div><div class="nb-sub">${dest.name}</div></div>`);
+      navMessage(`Arrived at ${dest.name}. Navigation ended.`, "ok");
+      nav.bannerTimer = setTimeout(() => { if (!nav.active) navBanner.hidden = true; }, 8000);
       return;
     }
 
@@ -1046,15 +1048,20 @@ if (route) {
     nav.timer = setInterval(navTick, NAV.pollSeconds * 1000);
   }
 
-  function stopNav(keepMessage) {
+  // stopNav(true) or stopNav({ keepMessage, keepSpeech, keepBanner })
+  function stopNav(opts) {
+    const o = typeof opts === "object" && opts ? opts : { keepMessage: !!opts };
+    const keepMessage = o.keepMessage;
     nav.active = false;
     clearInterval(nav.timer);
+    clearTimeout(nav.bannerTimer);
     if (nav.layer) nav.layer.clearLayers();
     if (nav.marker) { nav.marker.remove(); nav.marker = null; }
     nav.player = null;
     voice.key = null; voice.arrived = false;
-    if (canSpeak) speechSynthesis.cancel();
-    navBanner.hidden = true; navSteps.hidden = true;
+    if (canSpeak && !o.keepSpeech) speechSynthesis.cancel();
+    if (!o.keepBanner) navBanner.hidden = true;
+    navSteps.hidden = true;
     if (nav.recenter) nav.recenter.getContainer().hidden = true;
     navGo.textContent = "Start";
     navForm.classList.remove("navigating");
@@ -1062,7 +1069,7 @@ if (route) {
   }
 
   if (navForm) {
-    navForm.addEventListener("submit", e => { e.preventDefault(); nav.active ? stopNav() : startNav(); });
+    navForm.addEventListener("submit", e => { e.preventDefault(); if (nav.active) stopNav(); else startNav(); });
     // "Directions here" button in a stop's popup on the live map
     live.addEventListener("click", e => {
       const b = e.target.closest(".nav-here");
