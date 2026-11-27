@@ -107,7 +107,7 @@ if (route) {
     if (pt && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); showTip(+pt.dataset.i); }
     if (e.key === "Escape") hideTip();
   });
-  document.addEventListener("click", e => { if (!map.contains(e.target)) hideTip(); });
+  document.addEventListener("click", e => { if (!map.contains(e.target) && !e.target.closest(".stop")) hideTip(); });
   window.addEventListener("resize", () => { if (openIdx >= 0) showTip(openIdx); });
 
   // Place labels so they don't overlap each other, the dots, or the map edges.
@@ -350,6 +350,22 @@ if (route) {
       r.name = best ? `${best.name} Road` : `${r.owner} Road`;
     });
     roads.forEach(r => { if (r.major === undefined) r.major = MAJOR.includes(r.name); });
+    // Total length of each road: all connected pieces with the same name, so turns,
+    // jogs and bend-arounds count toward one number instead of each piece starting over.
+    // (Piece ends are snapped to the centre line of the road they meet, so corners aren't double counted.)
+    const seen = new Set();
+    roads.forEach(start => {
+      if (seen.has(start)) return;
+      const group = [], queue = [start];
+      while (queue.length) {
+        const r = queue.shift();
+        if (seen.has(r)) continue;
+        seen.add(r); group.push(r);
+        roads.forEach(o => { if (!seen.has(o) && o.name === r.name && touches(r, o)) queue.push(o); });
+      }
+      const total = Math.round(group.reduce((t, r) => t + roadLen(r), 0));
+      group.forEach(r => { r.total = total; r.pieces = group.length; });
+    });
     return roads;
   }
   const namedRoads = nameRoads();
@@ -372,7 +388,10 @@ if (route) {
       // click a road to see its name and a point on it (handy for ROAD_NAMES / IGNORE_CLAIMS in data.js)
       if (part === "fill" && !fallback) {
         const mid = [Math.round((r.from[0] + r.to[0]) / 2), Math.round((r.from[1] + r.to[1]) / 2)];
-        line.bindPopup(`<strong>${r.name}</strong><span class="coords">${roadLen(r).toLocaleString()} blocks long, ${r.width} wide</span>` +
+        const lengthText = r.pieces > 1
+          ? `${r.total.toLocaleString()} blocks long in total (this stretch ${roadLen(r).toLocaleString()}), ${r.width} wide`
+          : `${roadLen(r).toLocaleString()} blocks long, ${r.width} wide`;
+        line.bindPopup(`<strong>${r.name}</strong><span class="coords">${lengthText}</span>` +
           `<p>From X ${r.from[0]}, Z ${r.from[1]} to X ${r.to[0]}, Z ${r.to[1]}.<br>Point on road: <code>[${mid[0]}, ${mid[1]}]</code></p>`,
           { className: "live-popup", maxWidth: 280 });
       }
@@ -440,13 +459,39 @@ if (route) {
     if (!liveMap) return;
     const ll = (x, z) => L_.latLng(-z / 8, x / 8);
     liveLayer.clearLayers();
+    liveMarkers.clear();
     list.forEach(l => {
-      L_.circleMarker(ll(l.x, l.z), { radius: 7, className: "live-dot-marker", weight: 3, pane: "dots" })
+      const m = L_.circleMarker(ll(l.x, l.z), { radius: 7, className: "live-dot-marker", weight: 3, pane: "dots" })
         .bindTooltip(l.name, { permanent: true, direction: l.z > 0 ? "bottom" : "top", offset: [0, l.z > 0 ? 8 : -8], className: "live-lbl" })
         .bindPopup(infoHTML(l), { className: "live-popup", maxWidth: 260 })
         .addTo(liveLayer);
+      liveMarkers.set(l, m);
     });
   }
+  const liveMarkers = new Map();
+
+  // Clicking a stop in the list jumps the map to it and opens its info
+  function goToStop(l) {
+    document.querySelector(".mapbox").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    if (view === "live" && liveMap) {
+      const m = liveMarkers.get(l);
+      if (!m) return;
+      const zoom = Math.max(liveMap.getZoom(), 2);           // close enough to see the build (2 blocks per pixel)
+      liveMap.flyTo(m.getLatLng(), zoom, { duration: 1.2 });
+      liveMap.once("moveend", () => m.openPopup());
+    } else {
+      const i = shown.indexOf(l);
+      if (i >= 0) showTip(i);
+    }
+  }
+  route.addEventListener("click", e => {
+    const li = e.target.closest(".stop");
+    if (li) goToStop(LOCATIONS[+li.dataset.loc]);
+  });
+  route.addEventListener("keydown", e => {
+    const li = e.target.closest(".stop");
+    if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); goToStop(LOCATIONS[+li.dataset.loc]); }
+  });
 
   let L_ = null;
   async function setView(v) {
@@ -482,7 +527,8 @@ if (route) {
     const list = LOCATIONS.filter(l => t === "All" || l.type === t);
     if (view === "live") drawLive(list); else if (!map.hidden) drawMap(list);
     route.innerHTML = [...list].sort((a, b) => a.x - b.x).map(l =>
-      `<li class="stop"><div class="stop-head"><h3>${l.name}</h3><span class="tag">${l.type}</span></div>` +
+      `<li class="stop clickable" data-loc="${LOCATIONS.indexOf(l)}" tabindex="0" role="button" aria-label="${l.name}: show on map">` +
+      `<div class="stop-head"><h3>${l.name}</h3><span class="tag">${l.type}</span><span class="show-on-map" aria-hidden="true">Show on map →</span></div>` +
       `<span class="coords">${coords(l)}</span><p>${l.desc}</p></li>`).join("");
     filters.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.textContent === t));
   };

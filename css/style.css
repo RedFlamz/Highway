@@ -166,6 +166,11 @@ section{margin-bottom:3.5rem}
 .stop-head{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem .6rem;margin-bottom:.15rem}
 .stop h3{margin:0 .4rem .2rem 0;display:inline-block} .stop p{margin:.35rem 0 0;color:var(--muted)}
 .stop-head h3{margin:0}
+.stop.clickable{cursor:pointer}
+.stop.clickable:focus-visible{outline:3px solid var(--petal);outline-offset:3px}
+.show-on-map{margin-left:auto;font-size:.82rem;font-weight:600;color:var(--leaf);opacity:0;transform:translateX(-4px);transition:opacity .25s ease,transform .25s var(--ease)}
+.stop.clickable:hover .show-on-map,.stop.clickable:focus-visible .show-on-map{opacity:1;transform:none}
+@media(hover:none){.show-on-map{opacity:1;transform:none}}
 .tag{display:inline-block;vertical-align:middle;font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:var(--pond);color:#fff;border-radius:99px;padding:.1rem .65rem;line-height:1.5}
 .coords{display:block;font-size:.9rem;font-variant-numeric:tabular-nums;color:var(--leaf);font-weight:600}
 .filters{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem}
