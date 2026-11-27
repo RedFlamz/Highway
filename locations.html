@@ -25,6 +25,23 @@
 <main><div class="wrap">
   <h1>Locations</h1>
   <p>Stops along the Highway, in order from -X to +X.</p>
+  <form class="nav-panel" id="nav-form" autocomplete="off">
+    <h2 class="nav-title">Directions</h2>
+    <div class="nav-fields">
+      <label class="nav-field">Your Minecraft name
+        <input id="nav-name" required maxlength="20" placeholder="e.g. RedFlamz" spellcheck="false" autocapitalize="off">
+      </label>
+      <label class="nav-field">Go to
+        <select id="nav-dest"></select>
+      </label>
+      <span class="nav-coords" id="nav-coords" hidden>
+        <label class="nav-field">X<input id="nav-x" type="number" step="1" inputmode="numeric"></label>
+        <label class="nav-field">Z<input id="nav-z" type="number" step="1" inputmode="numeric"></label>
+      </span>
+      <button type="submit" class="nav-go" id="nav-go">Start</button>
+    </div>
+    <p class="nav-status" id="nav-status" role="status" aria-live="polite"></p>
+  </form>
   <div class="map-toolbar">
     <!-- Overview / Live switch is hidden: the live map is the default. Remove `hidden` to bring the switch back. -->
     <div class="view-switch" role="group" aria-label="Map view" hidden>
@@ -33,7 +50,10 @@
     </div>
     <span class="map-hint" id="map-hint">Click a dot for details.</span>
   </div>
-  <div class="mapbox"><div id="map" hidden></div><div id="live"></div></div>
+  <div class="mapbox"><div id="map" hidden></div><div id="live"></div>
+    <div class="nav-banner" id="nav-banner" hidden></div>
+  </div>
+  <ol class="nav-steps" id="nav-steps" hidden></ol>
   <p class="map-credit">Terrain from the <a href="https://lotus.blossomcraft.org" target="_blank" rel="noopener">Lotus live map</a>.</p>
   <div class="filters" id="filters" aria-label="Filter by type"></div>
   <ul class="route" id="route"></ul>

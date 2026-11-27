@@ -114,6 +114,8 @@ section{margin-bottom:3.5rem}
 #live .road-label span{position:absolute;white-space:nowrap;font:600 12px/1 "Saira",system-ui,sans-serif;letter-spacing:.02em;color:#4a4f54;
   text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff,0 0 3px #fff}
 #live .road-label span.major{color:#5c4508}
+#live .road-label .shield-wrap{transform:translate(-50%,-50%);text-shadow:none}
+#live .shield{display:block;font-family:"Saira",system-ui,sans-serif;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
 #live .road-fill{cursor:pointer}
 #live .road-end{fill:#fff;fill-opacity:1;stroke:#4a4f54}
 #live .road-end:hover{fill:var(--petal)}
@@ -157,6 +159,45 @@ section{margin-bottom:3.5rem}
 .map-tip p{margin:.3rem 0 0;color:var(--muted)}
 .tip-close{position:absolute;top:.25rem;right:.4rem;background:none;border:0;color:var(--muted);font-size:1.3rem;line-height:1;cursor:pointer;padding:.15rem .3rem}
 .tip-close:hover{color:var(--ink)}
+
+/* Navigation */
+.nav-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem 1.2rem;margin:0 0 1rem}
+.nav-title{font-size:1.15rem;margin:0 0 .6rem}
+.nav-fields{display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end}
+.nav-field{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;font-weight:600;color:var(--muted)}
+.nav-field input,.nav-field select{font:inherit;font-size:1rem;font-weight:400;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem;min-width:0}
+.nav-field input:focus,.nav-field select:focus{outline:2px solid var(--leaf);outline-offset:1px;border-color:transparent}
+#nav-name{width:13rem} #nav-dest{width:14rem} .nav-coords{display:flex;gap:.5rem} .nav-coords input{width:7rem}
+.nav-coords[hidden]{display:none}
+.nav-go{font:inherit;font-weight:700;border:0;border-radius:99px;padding:.6rem 1.5rem;background:#1a73e8;color:#fff;cursor:pointer;transition:background .2s ease,transform .2s var(--ease)}
+.nav-go:hover{background:#1557b0;transform:translateY(-1px)}
+.navigating .nav-go{background:#d93025} .navigating .nav-go:hover{background:#b3261e}
+.nav-status{margin:.6rem 0 0;font-size:.9rem;color:var(--muted);max-width:none}
+.nav-status:empty{display:none}
+.nav-status.error{color:#d93025} .nav-status.warn{color:#b06000} .nav-status.ok{color:var(--leaf)}
+.mapbox{position:relative}
+.nav-banner{position:absolute;z-index:1000;top:12px;left:56px;right:12px;max-width:460px;display:flex;gap:.9rem;align-items:center;
+  background:#0b8043;color:#fff;border-radius:12px;padding:.7rem 1rem;box-shadow:0 6px 20px rgba(0,0,0,.3);animation:pop .25s var(--ease) backwards}
+.nav-banner[hidden]{display:none}
+.nb-icon svg{width:40px;height:40px;display:block}
+.nb-dist{font-size:.85rem;opacity:.9}
+.nb-main{font-size:1.15rem;font-weight:700;line-height:1.25}
+.nb-sub{font-size:.85rem;opacity:.85;margin-top:.1rem}
+.nav-steps{list-style:none;margin:0 0 1.5rem;padding:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.nav-steps[hidden]{display:none}
+.nav-steps li{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;border-top:1px solid var(--line)}
+.nav-steps li:first-child{border-top:0}
+.nav-steps li.current{background:var(--petal-soft);font-weight:600}
+.ns-icon svg{width:22px;height:22px;display:block;color:#1a73e8}
+.nav-steps .arrive .ns-icon svg{color:#d93025}
+.ns-text{flex:1} .ns-len{color:var(--muted);font-size:.88rem;white-space:nowrap}
+#live .player-marker{background:none;border:0}
+#live .player-marker svg{transition:transform .4s ease;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+#live .recenter-btn{font:600 .9rem "Saira",system-ui,sans-serif;background:#fff;color:#1a73e8;border:0;border-radius:99px;padding:.45rem 1rem;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer}
+#live .recenter-btn[hidden]{display:none}
+#live .nav-here{margin-top:.6rem;font:600 .85rem "Saira",system-ui,sans-serif;background:#1a73e8;color:#fff;border:0;border-radius:99px;padding:.35rem .9rem;cursor:pointer}
+#live .nav-here:hover{background:#1557b0}
+@media(max-width:640px){.nav-banner{left:12px} #nav-name,#nav-dest{width:100%} .nav-field{flex:1 1 100%}}
 
 /* Route / timeline */
 .route{list-style:none;margin:0;padding:0 0 0 2.2rem;position:relative}

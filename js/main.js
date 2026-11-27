@@ -197,7 +197,10 @@ if (route) {
       errorTileUrl: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
     }).addTo(liveMap);
     // stacking: terrain < roads < street names < stop dots < stop names / popups
-    [["roads", 410], ["roadLabels", 420], ["dots", 430]].forEach(([n, z]) => liveMap.createPane(n).style.zIndex = z);
+    [["roads", 410], ["route", 415], ["roadLabels", 420], ["dots", 430], ["player", 640]]
+      .forEach(([n, z]) => liveMap.createPane(n).style.zIndex = z);
+    liveMap.getPane("route").style.pointerEvents = "none";
+    liveMap.on("dragstart", () => { if (nav.active) setFollow(false); });
     liveMap.getPane("roadLabels").style.pointerEvents = "none";
     liveLayer = L_.layerGroup().addTo(liveMap);
     liveMap.fitBounds(L_.latLngBounds(ll(-X, -Z / 2), ll(X, Z / 2)));
@@ -426,15 +429,36 @@ if (route) {
   }
 
   // Google-Maps-style street names: written along the road, repeated on long stretches, only in view
+  // Highway shield: green top saying "Lotus Highway", brown bottom with the road's number.
+  // Used for any road whose name has a number in it (LH5 -> 5); other roads get a text label.
+  const shieldNumber = name => (name.match(/\d+/) || [null])[0];
+  // Shape based on the public-domain Interstate shield "I-blank.svg" from Wikimedia Commons
+  // (https://commons.wikimedia.org/wiki/File:I-blank.svg): red top recoloured green, blue bottom brown,
+  // "INTERSTATE" replaced with "LOTUS HIGHWAY".
+  const SHIELD_OUTLINE = "M80.75,0C115.43,10.58 152.24,16.28 190.38,16.28C228.52,16.28 265.32,10.58 300,0C334.68,10.58 371.48,16.28 409.62,16.28C447.76,16.28 484.57,10.58 519.25,0C569.81,63.91 600,144.68 600,232.5C600,413.92 471.17,565.25 300,600C128.83,565.25 0,413.92 0,232.5C0,144.68 30.19,63.91 80.75,0z";
+  const SHIELD_BOTTOM = "M15,232.5C15,200.52 19.17,169.52 26.99,140L573.01,140C580.83,169.52 585,200.52 585,232.5C585,405.61 462.83,550.17 300,584.68C137.17,550.17 15,405.61 15,232.5z";
+  const SHIELD_TOP = "M31.32,125C43.58,85.78 62.36,49.44 86.4,17.26C119.5,26.39 154.37,31.27 190.38,31.27C228.44,31.27 265.22,25.82 300,15.65C334.78,25.82 371.56,31.27 409.62,31.27C445.63,31.27 480.5,26.39 513.6,17.26C537.64,49.44 556.42,85.78 568.68,125L31.32,125z";
+  function shieldSVG(num, name) {
+    const size = num.length >= 3 ? 210 : 260;               // squeeze 3-digit numbers
+    return `<svg class="shield" viewBox="-2 -2 604 604" width="25" height="25" role="img" aria-label="${name}">` +
+      `<path d="${SHIELD_OUTLINE}" fill="#fff" stroke="#000" stroke-width="2"/>` +
+      `<path d="${SHIELD_BOTTOM}" fill="#6b4423" transform="matrix(1.0071,0,0,1.0103,-2.128,-3.669)"/>` +
+      `<path d="${SHIELD_TOP}" fill="#1e6b3a" transform="matrix(1.0125,0,0,1.0271,-3.764,-3.102)"/>` +
+      `<text x="300" y="104" text-anchor="middle" font-size="66" font-weight="700" fill="#fff" textLength="400" lengthAdjust="spacingAndGlyphs">LOTUS HIGHWAY</text>` +
+      `<text x="300" y="${num.length >= 3 ? 420 : 435}" text-anchor="middle" font-size="${size}" font-weight="700" fill="#fff">${num}</text>` +
+      `</svg>`;
+  }
+
   function labelRoads() {
     labelLayer.clearLayers();
     const zoom = liveMap.getZoom();
     if (zoom < -1.5 || !namedRoads.length) return;
     const ppb = 2 ** zoom / 8, view = liveMap.getBounds().pad(0.3), placed = [];
     namedRoads.forEach(r => {
-      const len = roadLen(r) * ppb, textW = r.name.length * 7.2 + 24;
+      const num = shieldNumber(r.name);
+      const len = roadLen(r) * ppb, textW = num ? 28 : r.name.length * 7.2 + 24;
       if (len < textW + 30) return;                          // road too short on screen to fit its name
-      const n = Math.max(1, Math.floor(len / 650));
+      const n = Math.max(1, Math.floor(len / (num ? 800 : 650)));
       for (let i = 0; i < n; i++) {
         const f = (i + 0.5) / n;
         const x = r.from[0] + (r.to[0] - r.from[0]) * f, z = r.from[1] + (r.to[1] - r.from[1]) * f;
@@ -446,10 +470,12 @@ if (route) {
         if (LOCATIONS.some(l => liveMap.latLngToLayerPoint(L_.latLng(-l.z / 8, l.x / 8)).distanceTo(p) < textW / 2 + 10)) continue;
         placed.push(p);
         const rot = r.dir === "NS" ? 90 : 0;
+        const html = num
+          ? `<span class="shield-wrap">${shieldSVG(num, r.name)}</span>`       // shields stay upright
+          : `<span class="${r.major ? "major" : ""}" style="transform:translate(-50%,-50%) rotate(${rot}deg)">${r.name}</span>`;
         L_.marker(at, {
           pane: "roadLabels", interactive: false, keyboard: false,
-          icon: L_.divIcon({ className: "road-label", iconSize: [0, 0],
-            html: `<span class="${r.major ? "major" : ""}" style="transform:translate(-50%,-50%) rotate(${rot}deg)">${r.name}</span>` })
+          icon: L_.divIcon({ className: "road-label", iconSize: [0, 0], html })
         }).addTo(labelLayer);
       }
     });
@@ -463,7 +489,8 @@ if (route) {
     list.forEach(l => {
       const m = L_.circleMarker(ll(l.x, l.z), { radius: 7, className: "live-dot-marker", weight: 3, pane: "dots" })
         .bindTooltip(l.name, { permanent: true, direction: l.z > 0 ? "bottom" : "top", offset: [0, l.z > 0 ? 8 : -8], className: "live-lbl" })
-        .bindPopup(infoHTML(l), { className: "live-popup", maxWidth: 260 })
+        .bindPopup(infoHTML(l) + `<button type="button" class="nav-here" data-loc="${LOCATIONS.indexOf(l)}">Directions here</button>`,
+          { className: "live-popup", maxWidth: 260 })
         .addTo(liveLayer);
       liveMarkers.set(l, m);
     });
@@ -519,6 +546,327 @@ if (route) {
     if (b && b.dataset.view !== view) setView(b.dataset.view);
   });
   const currentList = () => LOCATIONS.filter(l => current === "All" || l.type === current);
+
+  // ================= Navigation: follow a player and give turn-by-turn directions =================
+  const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pollSeconds: 2, arriveDistance: 15, snapMax: 4000, gapLink: 150, jog: 250 },
+    typeof NAV_SETTINGS === "undefined" ? {} : NAV_SETTINGS);
+  const navForm = document.getElementById("nav-form"), navName = document.getElementById("nav-name");
+  const navDest = document.getElementById("nav-dest"), navCoords = document.getElementById("nav-coords");
+  const navX = document.getElementById("nav-x"), navZ = document.getElementById("nav-z");
+  const navGo = document.getElementById("nav-go"), navStatus = document.getElementById("nav-status");
+  const navBanner = document.getElementById("nav-banner"), navSteps = document.getElementById("nav-steps");
+  const nav = { active: false, timer: null, follow: true, dest: null, player: null, layer: null, marker: null, recenter: null, lastBanner: "" };
+
+  const fmtBlocks = n => `${Math.round(n).toLocaleString()} block${Math.round(n) === 1 ? "" : "s"}`;
+  const fmtTime = s => s < 60 ? "under a minute" : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.round(s % 3600 / 60)} min`;
+  const compass = (dx, dz) => ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"]
+    [((Math.round(Math.atan2(dx, -dz) / (Math.PI / 4)) % 8) + 8) % 8];
+  const projectOnRoad = ([x, z], r) => [
+    Math.max(Math.min(r.from[0], r.to[0]), Math.min(Math.max(r.from[0], r.to[0]), x)),
+    Math.max(Math.min(r.from[1], r.to[1]), Math.min(Math.max(r.from[1], r.to[1]), z))];
+
+  // Destination list: every stop, plus custom coordinates
+  if (navForm) {
+    navDest.innerHTML = [...LOCATIONS].sort((a, b) => a.name.localeCompare(b.name))
+      .map(l => `<option value="${LOCATIONS.indexOf(l)}">${l.name}</option>`).join("") +
+      `<option value="coords">Coordinates…</option>`;
+    navDest.addEventListener("change", () => { navCoords.hidden = navDest.value !== "coords"; });
+    try { navName.value = localStorage.getItem("highway-nav-name") || ""; } catch {}
+  }
+
+  // Fastest route over the roads (Dijkstra). Off-road travel is allowed but slower, so the route
+  // naturally goes: walk to the nearest useful road -> follow roads -> walk to the destination.
+  function findRoute(start, dest) {
+    const nodes = [], stations = namedRoads.map(() => []);
+    const node = (x, z) => {
+      let n = nodes.find(n => Math.hypot(n.x - x, n.z - z) <= 12);
+      if (!n) { n = { x, z, edges: [] }; nodes.push(n); }
+      return n;
+    };
+    const along = (r, p) => r.dir === "EW" ? p[0] : p[1];
+    const stationAt = (i, n) => { const p = projectOnRoad([n.x, n.z], namedRoads[i]); stations[i].push({ a: along(namedRoads[i], p), n }); };
+    const link = (a, b, len, speed, road) => {
+      a.edges.push({ to: b, len, cost: len / speed, road });
+      b.edges.push({ to: a, len, cost: len / speed, road });
+    };
+    // junctions: road ends, ends touching another road, and crossings
+    namedRoads.forEach((r, i) => [r.from, r.to].forEach(e => {
+      const n = node(...e); stationAt(i, n);
+      namedRoads.forEach((o, j) => { if (j !== i && distToRoad(e, o) <= 20) stationAt(j, n); });
+    }));
+    namedRoads.forEach((a, i) => namedRoads.forEach((b, j) => {
+      if (a.dir !== "EW" || b.dir !== "NS") return;
+      const x = b.from[0], z = a.from[1];
+      if (x > Math.min(a.from[0], a.to[0]) && x < Math.max(a.from[0], a.to[0]) &&
+          z > Math.min(b.from[1], b.to[1]) && z < Math.max(b.from[1], b.to[1])) {
+        const n = node(x, z); stationAt(i, n); stationAt(j, n);
+      }
+    }));
+    // start and destination, joined off-road to nearby roads and to each other
+    const S = { x: start[0], z: start[1], edges: [], tag: "start" }, D = { x: dest[0], z: dest[1], edges: [], tag: "dest" };
+    nodes.push(S, D);
+    [S, D].forEach(p => {
+      const snaps = namedRoads.map((r, i) => ({ i, p: projectOnRoad([p.x, p.z], r) }))
+        .map(s => ({ ...s, d: Math.hypot(s.p[0] - p.x, s.p[1] - p.z) }))
+        .sort((a, b) => a.d - b.d).filter((s, k) => k < 3 || s.d <= NAV.snapMax);
+      snaps.forEach(s => { const n = node(...s.p); stationAt(s.i, n); if (n !== p) link(p, n, s.d, NAV.offroadSpeed, null); });
+    });
+    link(S, D, Math.hypot(S.x - D.x, S.z - D.z), NAV.offroadSpeed, null);
+    // road ends that stop just short of another road (unclaimed bit) connect with a short walk
+    namedRoads.forEach((r, i) => [r.from, r.to].forEach(e => {
+      const en = node(...e);
+      namedRoads.forEach((o, j) => {
+        if (j === i) return;
+        const d = distToRoad(e, o);
+        if (d > 20 && d <= NAV.gapLink) { const n = node(...projectOnRoad(e, o)); stationAt(j, n); link(en, n, d, NAV.offroadSpeed, null); }
+      });
+    }));
+    // road edges between neighbouring stations
+    stations.forEach((list, i) => {
+      list.sort((a, b) => a.a - b.a);
+      for (let k = 1; k < list.length; k++) {
+        const a = list[k - 1], b = list[k];
+        // junctions at the same spot along the road (e.g. a side road ending just beside it) still connect
+        const len = Math.max(b.a - a.a, Math.hypot(a.n.x - b.n.x, a.n.z - b.n.z));
+        if (a.n !== b.n && len > 0) link(a.n, b.n, len, NAV.roadSpeed, namedRoads[i]);
+      }
+    });
+    // Dijkstra
+    const best = new Map([[S, 0]]), prev = new Map(), done = new Set();
+    for (;;) {
+      let u = null, bu = Infinity;
+      best.forEach((c, n) => { if (!done.has(n) && c < bu) { bu = c; u = n; } });
+      if (!u || u === D) break;
+      done.add(u);
+      u.edges.forEach(e => {
+        const c = bu + e.cost;
+        if (c < (best.has(e.to) ? best.get(e.to) : Infinity)) { best.set(e.to, c); prev.set(e.to, { from: u, e }); }
+      });
+    }
+    if (!prev.has(D)) return null;
+    const legs = [];
+    for (let n = D; n !== S; n = prev.get(n).from) legs.unshift({ from: prev.get(n).from, to: n, ...prev.get(n).e });
+    return { legs: legs.filter(l => l.len > 0.5), time: best.get(D) };
+  }
+
+  // Turn the route into steps like "Turn left onto LH105"
+  function routeSteps(route, destName) {
+    const steps = [];
+    route.legs.forEach(l => {
+      const v = [(l.to.x - l.from.x) / l.len, (l.to.z - l.from.z) / l.len];
+      const last = steps[steps.length - 1];
+      const sameWay = last && last.road === l.road && (l.road === null || v[0] * last.v[0] + v[1] * last.v[1] > 0.98);
+      if (sameWay) { last.len += l.len; last.to = l.to; last.time += l.cost; }
+      else steps.push({ road: l.road, v, len: l.len, time: l.cost, from: l.from, to: l.to });
+    });
+    // tiny off-road hops (already standing on the road) aren't worth an instruction
+    const kept = steps.filter(s => s.road || s.len >= 12 || steps.length === 1);
+    // short jogs and bend-arounds on the same road are folded in: "Continue on LH5", not five turns
+    const keep = [];
+    kept.forEach(s => {
+      const last = keep[keep.length - 1];
+      if (last && s.road && last.road && s.road.name === last.road.name &&
+          (s.len < NAV.jog || last.jogged || last.len < NAV.jog) &&
+          !(s.len >= NAV.jog && last.len >= NAV.jog && s.v[0] * last.mainV[0] + s.v[1] * last.mainV[1] < 0.9)) {
+        last.len += s.len; last.time += s.time; last.to = s.to; last.jogged = s.len < NAV.jog;
+        if (s.len > last.mainLen) { last.mainV = s.v; last.mainLen = s.len; }
+        return;
+      }
+      keep.push({ ...s, mainV: s.v, mainLen: s.len });
+    });
+    keep.forEach(s => { if (s.road) s.v = s.mainV; });
+    keep.forEach((s, k) => {
+      const prevStep = keep[k - 1], dir = compass(s.to.x - s.from.x, s.to.z - s.from.z);
+      if (!s.road) {
+        s.icon = k === keep.length - 1 ? "flag" : "head";
+        s.text = k === keep.length - 1
+          ? (prevStep ? `Leave ${prevStep.road.name} and head ${dir} to ${destName}` : `Head ${dir} to ${destName}`)
+          : `Head ${dir} to ${keep[k + 1].road.name}`;
+        return;
+      }
+      if (!prevStep) { s.icon = "head"; s.text = `Head ${dir} on ${s.road.name}`; return; }
+      if (!prevStep.road) { s.icon = "join"; s.text = `Join ${s.road.name} heading ${dir}`; return; }
+      const cross = prevStep.v[0] * s.v[1] - prevStep.v[1] * s.v[0], dot = prevStep.v[0] * s.v[0] + prevStep.v[1] * s.v[1];
+      const turn = dot > 0.9 ? "straight" : dot < -0.9 ? "uturn" : cross > 0 ? "right" : "left";
+      s.icon = turn;
+      const verb = { straight: "Continue", uturn: "Make a U-turn", right: "Turn right", left: "Turn left" }[turn];
+      s.text = s.road.name === prevStep.road.name
+        ? `${verb} to stay on ${s.road.name}${turn === "straight" ? "" : ` (heading ${dir})`}`
+        : `${verb} onto ${s.road.name}`;
+    });
+    return keep;
+  }
+
+  const ICONS = {
+    head: "M12 3l6 8h-4v10h-4V11H6z", straight: "M12 3l6 8h-4v10h-4V11H6z", join: "M12 3l6 8h-4v10h-4V11H6z",
+    left: "M9 4L3 9l6 5v-3h6a2 2 0 012 2v8h4v-8a6 6 0 00-6-6H9z",
+    right: "M15 4l6 5-6 5v-3H9a2 2 0 00-2 2v8H3v-8a6 6 0 016-6h6z",
+    uturn: "M8 21V9a5 5 0 0110 0v4h3l-5 6-5-6h3V9a1 1 0 00-2 0v12z",
+    flag: "M5 21V4h11l-1.5 3.5L16 11H7v10z",
+  };
+  const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] || ICONS.head}" fill="currentColor"/></svg>`;
+
+  function setFollow(on) {
+    nav.follow = on;
+    if (nav.recenter) nav.recenter.getContainer().hidden = on || !nav.active;
+    if (on && nav.player) liveMap.panTo(L_.latLng(-nav.player.z / 8, nav.player.x / 8));
+  }
+
+  function navMessage(text, kind = "") {
+    navStatus.textContent = text;
+    navStatus.className = `nav-status ${kind}`;
+  }
+
+  async function fetchPlayer(name) {
+    const url = NAV.playerFeed
+      ? `${NAV.playerFeed}${NAV.playerFeed.includes("?") ? "&" : "?"}name=${encodeURIComponent(name)}`
+      : `${SQUAREMAP}/tiles/players.json`;            // only works if the map server ever allows other sites
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return (data.players || []).find(p => String(p.name).toLowerCase() === name.toLowerCase()) || null;
+  }
+
+  async function navTick(first) {
+    if (!nav.active || (document.hidden && !first)) return;
+    const name = navName.value.trim();
+    let p;
+    try { p = await fetchPlayer(name); }
+    catch (e) {
+      navMessage(NAV.playerFeed
+        ? "Can't reach the player feed right now. Trying again…"
+        : "Live player positions aren't set up for this site yet (the map server blocks other websites). " +
+          "The site owner needs to add the player relay: see tools/player-proxy-worker.js.", "error");
+      if (!NAV.playerFeed) stopNav(true);
+      return;
+    }
+    if (!nav.active) return;
+    if (!p) { navMessage(`Can't see ${name} on the map. Make sure you're online and not hidden from the map.`, "warn"); return; }
+    if (p.world !== "minecraft_overworld") {
+      navMessage(`${p.name} is in the ${p.world.includes("nether") ? "Nether" : p.world.includes("end") ? "End" : p.world}. Head back to the overworld to navigate.`, "warn");
+      return;
+    }
+    nav.player = p;
+    const here = [p.x, p.z], dest = nav.dest;
+    const ll = (x, z) => L_.latLng(-z / 8, x / 8);
+
+    // player arrow (yaw 0 = facing south / down the map)
+    const arrow = `<svg viewBox="0 0 40 40" width="34" height="34" style="transform:rotate(${p.yaw + 180}deg)">` +
+      `<circle cx="20" cy="20" r="17" fill="#4285f4" fill-opacity=".18"/>` +
+      `<path d="M20 6l9 24-9-5-9 5z" fill="#4285f4" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+    if (!nav.marker) {
+      nav.marker = L_.marker(ll(...here), { pane: "player", interactive: false, keyboard: false,
+        icon: L_.divIcon({ className: "player-marker", iconSize: [34, 34], iconAnchor: [17, 17], html: arrow }) }).addTo(liveMap);
+    } else {
+      nav.marker.setLatLng(ll(...here));
+      nav.marker.getElement().innerHTML = arrow;
+    }
+
+    const toGo = Math.hypot(dest.x - p.x, dest.z - p.z);
+    if (toGo <= NAV.arriveDistance) {
+      nav.layer.clearLayers();
+      showBanner(`<div class="nb-icon">${icon("flag")}</div><div><div class="nb-main">You've arrived</div><div class="nb-sub">${dest.name}</div></div>`);
+      navSteps.hidden = true;
+      navMessage(`Arrived at ${dest.name}.`, "ok");
+      if (nav.follow) liveMap.panTo(ll(...here));
+      return;
+    }
+
+    const route = findRoute(here, [dest.x, dest.z]);
+    if (!route) { navMessage("Couldn't find a route.", "error"); return; }
+    const steps = routeSteps(route, dest.name);
+    const total = steps.reduce((t, s) => t + s.len, 0), time = steps.reduce((t, s) => t + s.time, 0);
+
+    // route line, Google-blue with a white edge
+    nav.layer.clearLayers();
+    const pts = [ll(...here), ...route.legs.map(l => ll(l.to.x, l.to.z))];
+    L_.polyline(pts, { pane: "route", color: "#fff", weight: 11, opacity: 1, lineCap: "round", lineJoin: "round", interactive: false }).addTo(nav.layer);
+    L_.polyline(pts, { pane: "route", color: "#4285f4", weight: 7, opacity: 1, lineCap: "round", lineJoin: "round", interactive: false }).addTo(nav.layer);
+    if (dest.custom) L_.circleMarker(ll(dest.x, dest.z), { pane: "dots", radius: 8, weight: 3, color: "#fff", fillColor: "#d93025", fillOpacity: 1 }).addTo(nav.layer);
+
+    // banner: what to do next
+    const now = steps[0], next = steps[1];
+    showBanner(next
+      ? `<div class="nb-icon">${icon(next.icon)}</div><div><div class="nb-dist">In ${fmtBlocks(now.len)}</div><div class="nb-main">${next.text}</div>` +
+        `<div class="nb-sub">${now.text}</div></div>`
+      : `<div class="nb-icon">${icon(now.icon)}</div><div><div class="nb-main">${now.text}</div><div class="nb-sub">${fmtBlocks(now.len)}</div></div>`);
+    navSteps.hidden = false;
+    navSteps.innerHTML = steps.map((s, k) => `<li class="${k === 0 ? "current" : ""}"><span class="ns-icon">${icon(s.icon)}</span>` +
+      `<span class="ns-text">${s.text}</span><span class="ns-len">${fmtBlocks(s.len)}</span></li>`).join("") +
+      `<li class="arrive"><span class="ns-icon">${icon("flag")}</span><span class="ns-text">Arrive at ${dest.name}</span></li>`;
+    navMessage(`${fmtBlocks(total)} to ${dest.name} · about ${fmtTime(time)} (boat on the Highway). Updates every ${NAV.pollSeconds}s.`, "ok");
+
+    if (first) liveMap.setView(ll(...here), Math.max(liveMap.getZoom(), 1));
+    else if (nav.follow) liveMap.panTo(ll(...here), { animate: true, duration: 0.5 });
+  }
+
+  function showBanner(html) {
+    navBanner.hidden = false;
+    if (html !== nav.lastBanner) { navBanner.innerHTML = html; nav.lastBanner = html; }
+  }
+
+  function startNav() {
+    const name = navName.value.trim();
+    if (!/^[.\w]{1,20}$/.test(name)) { navMessage("Enter your Minecraft name (letters, numbers and _ only).", "error"); navName.focus(); return; }
+    let dest;
+    if (navDest.value === "coords") {
+      if (navX.value === "" || navZ.value === "") { navMessage("Enter the X and Z you want to go to.", "error"); navX.focus(); return; }
+      dest = { x: +navX.value, z: +navZ.value, name: `X ${navX.value}, Z ${navZ.value}`, custom: true };
+    } else {
+      const l = LOCATIONS[+navDest.value];
+      dest = { x: l.x, z: l.z, name: l.name };
+    }
+    if (view !== "live" || !liveMap) { navMessage("The live map is still loading, try again in a moment.", "warn"); return; }
+    try { localStorage.setItem("highway-nav-name", name); } catch {}
+    stopNav(true);
+    nav.active = true; nav.dest = dest; nav.lastBanner = "";
+    nav.layer = nav.layer || L_.layerGroup().addTo(liveMap);
+    if (!nav.recenter) {
+      nav.recenter = L_.control({ position: "bottomright" });
+      nav.recenter.onAdd = () => {
+        const b = L_.DomUtil.create("button", "recenter-btn");
+        b.type = "button"; b.textContent = "Re-center"; b.hidden = true;
+        L_.DomEvent.disableClickPropagation(b);
+        b.addEventListener("click", () => setFollow(true));
+        return b;
+      };
+      nav.recenter.addTo(liveMap);
+    }
+    setFollow(true);
+    navGo.textContent = "Stop";
+    navForm.classList.add("navigating");
+    navMessage(`Looking for ${name}…`);
+    document.querySelector(".mapbox").scrollIntoView({ behavior: "smooth", block: "center" });
+    navTick(true);
+    nav.timer = setInterval(navTick, NAV.pollSeconds * 1000);
+  }
+
+  function stopNav(keepMessage) {
+    nav.active = false;
+    clearInterval(nav.timer);
+    if (nav.layer) nav.layer.clearLayers();
+    if (nav.marker) { nav.marker.remove(); nav.marker = null; }
+    nav.player = null;
+    navBanner.hidden = true; navSteps.hidden = true;
+    if (nav.recenter) nav.recenter.getContainer().hidden = true;
+    navGo.textContent = "Start";
+    navForm.classList.remove("navigating");
+    if (!keepMessage) navMessage("");
+  }
+
+  if (navForm) {
+    navForm.addEventListener("submit", e => { e.preventDefault(); nav.active ? stopNav() : startNav(); });
+    // "Directions here" button in a stop's popup on the live map
+    live.addEventListener("click", e => {
+      const b = e.target.closest(".nav-here");
+      if (!b) return;
+      navDest.value = b.dataset.loc; navCoords.hidden = true;
+      if (liveMap) liveMap.closePopup();
+      if (navName.value.trim()) startNav();
+      else { navForm.scrollIntoView({ behavior: "smooth", block: "center" }); navName.focus(); navMessage("Enter your Minecraft name, then press Start.", "warn"); }
+    });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && nav.active) navTick(); });
+  }
 
   let firstRender = true;
   const render = t => {

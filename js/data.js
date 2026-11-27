@@ -40,6 +40,18 @@ const ROAD_SETTINGS = {
   connectGap: 2000,
 };
 
+// ---------------- Navigation (Locations page) ----------------
+// playerFeed: URL of your player relay (see tools/player-proxy-worker.js for the 5-minute setup).
+//   Without it, browsers aren't allowed to read player positions from the Lotus map.
+// roadSpeed / offroadSpeed: blocks per second, used for the route choice and arrival time
+//   (about 40 = boat on packed ice, 6 = sprinting).
+const NAV_SETTINGS = {
+  playerFeed: "",
+  roadSpeed: 40,
+  offroadSpeed: 6,
+  pollSeconds: 2,
+};
+
 // Claims that should NOT be road. Put any [x, z] point inside the claim.
 // Tip: hover the live map to read coordinates at the bottom left, or click a road to see a point on it.
 const IGNORE_CLAIMS = [
