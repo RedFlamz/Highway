@@ -848,7 +848,8 @@ if (route) {
     if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? " " + ONES[n % 10] : "");
     if (n < 1000) return ONES[Math.floor(n / 100)] + " hundred" + (n % 100 ? " " + words(n % 100) : "");
     if (n < 1e4 && n % 100 === 0 && n % 1000) return words(n / 100) + " hundred";   // 1200 → "twelve hundred"
-    if (n < 1e6) return words(Math.floor(n / 1000)) + " thousand" + (n % 1000 ? " " + words(n % 1000) : "");
+    // the comma adds a short pause; without it Piper slurs "fourteen thousand five hundred" into noise
+    if (n < 1e6) return words(Math.floor(n / 1000)) + " thousand" + (n % 1000 ? ", " + words(n % 1000) : "");
     return String(n);
   }
   // Highway numbers like real US highways: 5 "five", 20 "twenty", 305 "three oh five", 120 "one twenty", 1405 "fourteen oh five"
@@ -878,12 +879,40 @@ if (route) {
   // Nothing is downloaded until someone picks it in the dropdown. The model (~63 MB) is then kept in the
   // browser's storage, so it only downloads once.
   const PIPER_LIB = "https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm";
-  const PIPER_VOICES = { "en_US-hfc_female-medium": "Piper female", "en_US-hfc_male-medium": "Piper male" };
-  const PIPER_RATE = 0.93;   // playback speed (1 = as generated; lower = slower)
+  // Amy says numbers ("fourteen thousand") the most clearly of the Piper voices
+  const PIPER_VOICES = { "en_US-amy-medium": "Piper Amy" };
+  // How slowly each Piper voice talks: 1 = the model's normal pace, above 1 = slower (1.1 = 10% slower),
+  // below 1 = faster (0.9 = 10% faster). The voice itself is made faster/slower, which stays clear.
+  const PIPER_PACES = { "en_US-amy-medium": 0.92 };
+  // Piper reads its settings from the voice's .json file (saved in the browser's storage); set the pace there
+  async function tunePiper(id) {
+    try {
+      const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle("piper", { create: true });
+      const name = `${id}.onnx.json`;
+      let cfg = null;
+      try { cfg = JSON.parse(await (await (await dir.getFileHandle(name)).getFile()).text()); } catch {}
+      if (!cfg) cfg = await (await fetch(`${piper.lib.HF_BASE}/${piper.lib.PATH_MAP[id]}.json`)).json();
+      const inf = cfg.inference;
+      if (inf.basePace === undefined) inf.basePace = inf.length_scale;
+      const pace = inf.basePace * (PIPER_PACES[id] || 1);
+      if (inf.length_scale === pace) return;
+      inf.length_scale = pace;
+      const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+      await w.write(JSON.stringify(cfg)); await w.close();
+    } catch (e) { console.warn("Couldn't set the Piper pace:", e); }
+  }
   const canPiper =!!(window.WebAssembly && navigator.storage && navigator.storage.getDirectory && window.Audio);
   const voiceLoad = document.getElementById("nav-voice-load");
   const piper = { id: null, lib: null, ready: new Set(), loading: {}, audio: null, queue: Promise.resolve(), gen: 0 };
   try { JSON.parse(localStorage.getItem("highway-piper-ready") || "[]").forEach(id => piper.ready.add(id)); } catch {}
+  // free the space used by Piper voices that were taken out of the list
+  const oldPiper = [...piper.ready].filter(id => !PIPER_VOICES[id]);
+  if (oldPiper.length && canPiper) {
+    oldPiper.forEach(id => piper.ready.delete(id));
+    try { localStorage.setItem("highway-piper-ready", JSON.stringify([...piper.ready])); } catch {}
+    navigator.storage.getDirectory().then(root => root.getDirectoryHandle("piper")).then(dir =>
+      Promise.all(oldPiper.flatMap(id => [`${id}.onnx`, `${id}.onnx.json`].map(n => dir.removeEntry(n).catch(() => {}))))).catch(() => {});
+  }
   const savedVoice = () => { try { return localStorage.getItem("highway-nav-voice-name"); } catch { return null; } };
   const saveVoice = name => { try { localStorage.setItem("highway-nav-voice-name", name); } catch {} };
   const showPick = () => { if (voicePick) voicePick.hidden = !voice.on || !voicePick.options.length; };
@@ -919,6 +948,7 @@ if (route) {
     return piper.loading[id] = (async () => {
       piperStatus(fresh ? "Loading voice model…" : "Starting voice…");
       piper.lib = piper.lib || await import(PIPER_LIB);
+      await tunePiper(id);
       // the first phrase downloads the model (if needed) plus the speech engine's files
       await piper.lib.predict({ text: "Ready.", voiceId: id }, e => {
         if (!fresh) return;
@@ -935,7 +965,6 @@ if (route) {
     return new Promise(done => {
       const a = new Audio(URL.createObjectURL(blob));
       piper.audio = a;
-      a.preservesPitch = true; a.playbackRate = PIPER_RATE;   // a touch slower than the model's natural pace
       a.onended = a.onerror = () => { URL.revokeObjectURL(a.src); if (piper.audio === a) piper.audio = null; done(); };
       a.play().catch(a.onended);
     });
@@ -998,33 +1027,45 @@ if (route) {
   // going straight through an intersection: only one callout, as you reach it
   const PASS_AT = 100;
   const isPass = s => !!(s && s.icon === "straight" && s.passing && s.passing.length);
+  // The next real maneuver, skipping intersections you just go straight through.
+  // dist = blocks from here to it (passes don't split the distance).
+  function nextTurn(steps) {
+    let k = 1, dist = steps[0].len;
+    while (k < steps.length && isPass(steps[k])) dist += steps[k++].len;
+    return { step: steps[k] || null, dist };
+  }
+  const stepKey = s => `${s.text}@${Math.round(s.from.x / 25)},${Math.round(s.from.z / 25)}`;
   function announce(steps, dest, first) {
     if (!voice.on) return;
     const now = steps[0], next = steps[1];
-    const d = now.len;                                       // distance to the next maneuver
-    const pass = isPass(next), sayAt = pass ? [PASS_AT] : SAY_AT;
-    const what = next ? lower(next.text) : `arrive at ${dest.name}`;
-    const key = next ? `${next.text}@${Math.round(next.from.x / 25)},${Math.round(next.from.z / 25)}` : `arrive@${dest.name}`;
+    const { step: turn, dist: d } = nextTurn(steps);         // distance to the next real turn
+    const what = turn ? lower(turn.text) : `arrive at ${dest.name}`;
+    const key = turn ? stepKey(turn) : `arrive@${dest.name}`;
+    const onRoad = `Continue on ${now.road ? now.road.name : "this path"}`;
+    // going straight through an intersection: one short callout as you reach it
+    const passKey = isPass(next) ? stepKey(next) : null;
     if (first) {
-      voice.key = key; voice.keyPass = pass; voice.done = new Set(sayAt.filter(t => d < t)); voice.arrived = false;
-      speak(`Starting route to ${dest.name}. ${now.text}` +
-        (next && !pass ? `, then in ${roundSay(d)} blocks, ${what}.` : ` for ${roundSay(d)} blocks.`));
+      voice.key = key; voice.done = new Set(SAY_AT.filter(t => d < t)); voice.arrived = false;
+      voice.passKey = passKey && now.len < PASS_AT ? passKey : null;
+      const start = isPass(now) ? onRoad : now.text;
+      speak(`Starting route to ${dest.name}. ${start}` + (turn ? `, then in ${roundSay(d)} blocks, ${what}.` : ` for ${roundSay(d)} blocks.`));
       return;
     }
-    if (key !== voice.key) {                                 // finished a maneuver (or rerouted)
-      const wasPass = voice.keyPass;
-      voice.key = key; voice.keyPass = pass; voice.done = new Set(sayAt.filter(t => d < t * 0.9));
-      if (wasPass) return;                                   // just went straight through: nothing more to say
-      if (d >= 400) speak(`${now.text.startsWith("Continue") ? now.text : `Continue on ${now.road ? now.road.name : "this path"}`} for ${roundSay(d)} blocks.`);
-      else if (!pass && d < SAY_AT[SAY_AT.length - 1]) speak(next ? `${next.text}.` : `Your destination, ${dest.name}, is ahead.`);
+    if (passKey && passKey !== voice.passKey && now.len <= PASS_AT) {
+      voice.passKey = passKey;
+      speak(`${next.text}.`);
+    }
+    if (key !== voice.key) {                                 // finished a turn (or rerouted)
+      voice.key = key; voice.done = new Set(SAY_AT.filter(t => d < t * 0.9));
+      if (d >= 400) speak(`${now.text.startsWith("Continue") && !isPass(now) ? now.text : onRoad} for ${roundSay(d)} blocks.`);
+      else if (d < SAY_AT[SAY_AT.length - 1]) speak(turn ? `${turn.text}.` : `Your destination, ${dest.name}, is ahead.`);
       return;
     }
-    const t = sayAt.find(t => d <= t && !voice.done.has(t));
+    const t = SAY_AT.find(t => d <= t && !voice.done.has(t));
     if (t === undefined) return;
-    sayAt.filter(x => x >= t).forEach(x => voice.done.add(x));
-    if (pass) speak(`${next.text}.`);
-    else if (t === SAY_AT[SAY_AT.length - 1]) speak(next ? `${next.text}.` : `Your destination, ${dest.name}, is ahead.`);
-    else speak(next ? `In ${roundSay(d)} blocks, ${what}.` : `In ${roundSay(d)} blocks, you'll arrive at ${dest.name}.`);
+    SAY_AT.filter(x => x >= t).forEach(x => voice.done.add(x));
+    if (t === SAY_AT[SAY_AT.length - 1]) speak(turn ? `${turn.text}.` : `Your destination, ${dest.name}, is ahead.`);
+    else speak(turn ? `In ${roundSay(d)} blocks, ${what}.` : `In ${roundSay(d)} blocks, you'll arrive at ${dest.name}.`);
   }
 
   async function navTick(first) {
@@ -1147,14 +1188,21 @@ if (route) {
     if (dest.custom) L_.circleMarker(ll(dest.x, dest.z), { pane: "dots", radius: 8, weight: 3, color: "#fff", fillColor: "#d93025", fillOpacity: 1 }).addTo(nav.layer);
 
     // banner: what to do next
-    const now = steps[0], next = steps[1];
-    showBanner(next
-      ? `<div class="nb-icon">${icon(next.icon)}</div><div><div class="nb-dist">In ${fmtBlocks(now.len)}</div><div class="nb-main">${next.text}</div>` +
-        `<div class="nb-sub">${now.text}</div></div>`
-      : `<div class="nb-icon">${icon(now.icon)}</div><div><div class="nb-main">${now.text}</div><div class="nb-sub">${fmtBlocks(now.len)}</div></div>`);
+    // banner: the next real turn; intersections you go straight through don't split the distance
+    const now = steps[0], { step: turn, dist: toTurn } = nextTurn(steps);
+    const nowText = isPass(now) ? `Continue on ${now.road.name}` : now.text;
+    showBanner(turn
+      ? `<div class="nb-icon">${icon(turn.icon)}</div><div><div class="nb-dist">In ${fmtBlocks(toTurn)}</div><div class="nb-main">${turn.text}</div>` +
+        `<div class="nb-sub">${nowText}</div></div>`
+      : `<div class="nb-icon">${icon(now.icon)}</div><div><div class="nb-main">${nowText}</div><div class="nb-sub">${fmtBlocks(toTurn)}</div></div>`);
     navSteps.hidden = false;
-    navSteps.innerHTML = steps.map((s, k) => `<li class="${k === 0 ? "current" : ""}"><span class="ns-icon">${icon(s.icon)}</span>` +
-      `<span class="ns-text">${s.text}</span><span class="ns-len">${fmtBlocks(s.len)}</span></li>`).join("") +
+    // each step's distance runs to the next real turn; pass-through intersections are listed without one
+    navSteps.innerHTML = steps.map((s, k) => {
+      const pass = k > 0 && isPass(s);
+      const len = pass ? "" : fmtBlocks(nextTurn(steps.slice(k)).dist);
+      return `<li class="${k === 0 ? "current" : ""}${pass ? " pass" : ""}"><span class="ns-icon">${icon(s.icon)}</span>` +
+        `<span class="ns-text">${k === 0 ? nowText : s.text}</span><span class="ns-len">${len}</span></li>`;
+    }).join("") +
       `<li class="arrive"><span class="ns-icon">${icon("flag")}</span><span class="ns-text">Arrive at ${dest.name}</span></li>`;
     const moving = Math.hypot(...track.v);
     navMessage(`${fmtBlocks(total)} to ${dest.name} · about ${fmtTime(time)} (boat on the Highway)` +

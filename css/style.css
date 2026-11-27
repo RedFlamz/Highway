@@ -209,6 +209,7 @@ section{margin-bottom:3.5rem}
 .nav-steps li{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;border-top:1px solid var(--line)}
 .nav-steps li:first-child{border-top:0}
 .nav-steps li.current{background:var(--petal-soft);font-weight:600}
+.nav-steps li.pass{padding-top:.3rem;padding-bottom:.3rem;padding-left:2.2rem;font-size:.85rem;opacity:.7;border-top-style:dashed}
 .ns-icon svg{width:22px;height:22px;display:block;color:#1a73e8}
 .nav-steps .arrive .ns-icon svg{color:#d93025}
 .ns-text{flex:1} .ns-len{color:var(--muted);font-size:.88rem;white-space:nowrap}
