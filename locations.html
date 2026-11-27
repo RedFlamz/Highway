@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Locations | /pw Highway</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Saira:ital,wdth,wght@0,50..125,100..900;1,50..125,100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -26,12 +25,22 @@
 <main><div class="wrap">
   <h1>Locations</h1>
   <p>Stops along the Highway, in order from -X to +X.</p>
-  <div class="mapbox"><div id="map"></div></div>
+  <div class="map-toolbar">
+    <!-- Overview / Live switch is hidden: the live map is the default. Remove `hidden` to bring the switch back. -->
+    <div class="view-switch" role="group" aria-label="Map view" hidden>
+      <button type="button" data-view="overview" aria-pressed="true">Overview</button>
+      <button type="button" data-view="live" aria-pressed="false"><i class="live-dot" aria-hidden="true"></i>Live map</button>
+    </div>
+    <span class="map-hint" id="map-hint">Click a dot for details.</span>
+  </div>
+  <div class="mapbox"><div id="map" hidden></div><div id="live"></div></div>
+  <p class="map-credit">Terrain from the <a href="https://lotus.blossomcraft.org" target="_blank" rel="noopener">Lotus live map</a>.</p>
   <div class="filters" id="filters" aria-label="Filter by type"></div>
   <ul class="route" id="route"></ul>
 </div></main>
-<footer><div class="wrap">/pw Highway On Lotus</div></footer>
+<footer><div class="wrap">/pw Highway on Lotus</div></footer>
 <script src="js/data.js"></script>
+<script src="js/claims.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
