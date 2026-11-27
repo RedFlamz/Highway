@@ -685,7 +685,31 @@ if (route) {
       });
     });
     copier("edit-copy", "edit-snippet"); copier("edit-path-copy", "edit-path-snippet");
+    // Lotus Maps mod: save lotusmaps.json next to index.html and upload it with the site
+    $id("edit-export").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(lotusMapsData(), null, 1)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "lotusmaps.json"; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      editMsg("Saved <b>lotusmaps.json</b>. Put it in the Highway folder (next to index.html) and upload it with the site: " +
+        "the Lotus Maps mod downloads it from there. Previews you haven't added to data.js are included too.");
+    });
   }
+
+  // Everything the Lotus Maps Minecraft mod needs: the finished roads (already built from claims and named),
+  // paths, stops and navigation settings. The mod reads this instead of redoing the road building.
+  function lotusMapsData() {
+    return {
+      format: 1,
+      generated: new Date().toISOString(),
+      settings: { roadSpeed: NAV.roadSpeed, offroadSpeed: NAV.offroadSpeed, pathSpeed: NAV.pathSpeed, offroadDetour: NAV.offroadDetour,
+                  arriveDistance: NAV.arriveDistance, snapMax: NAV.snapMax, gapLink: NAV.gapLink, jog: NAV.jog },
+      locations: LOCATIONS.map(l => ({ name: l.name, type: l.type, x: l.x, z: l.z, desc: l.desc || "" })),
+      roads: namedRoads.map(r => ({ name: r.name, major: !!r.major, dir: r.dir, width: r.width, from: r.from, to: r.to })),
+      paths: namedPaths.map(p => ({ name: p.name, status: p.type, points: p.points })),
+    };
+  }
+  window.lotusMapsData = lotusMapsData;
 
   // ---- drawing a path ----
   function drawDraft() {

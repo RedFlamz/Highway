@@ -1,0 +1,475 @@
+{
+ "format": 1,
+ "generated": "2026-11-27T21:18:52.327Z",
+ "settings": {
+  "roadSpeed": 40,
+  "offroadSpeed": 6,
+  "pathSpeed": 7,
+  "offroadDetour": 1,
+  "arriveDistance": 16,
+  "snapMax": 4000,
+  "gapLink": 250,
+  "jog": 250
+ },
+ "locations": [
+  {
+   "name": "SamaShop",
+   "type": "Shop",
+   "x": -13610,
+   "z": 2540,
+   "desc": "A shop by GumiSamaVT."
+  },
+  {
+   "name": "Regalian Empire",
+   "type": "Town",
+   "x": -8430,
+   "z": 0,
+   "desc": "An empire ruled by Bloodhound412 with the support of Redflamz."
+  },
+  {
+   "name": "Bucees",
+   "type": "Shop",
+   "x": -3404,
+   "z": 0,
+   "desc": "A shop."
+  },
+  {
+   "name": "Shop/EXP",
+   "type": "Shop",
+   "x": -3404,
+   "z": -5600,
+   "desc": "/pw EXP and /pw Shop."
+  },
+  {
+   "name": "Community Center",
+   "type": "Park",
+   "x": 0,
+   "z": 0,
+   "desc": "A community park."
+  },
+  {
+   "name": "/pw Highway Hub",
+   "type": "Hub",
+   "x": 840,
+   "z": 0,
+   "desc": "The /pw Highway spawn point."
+  },
+  {
+   "name": "Atlantis",
+   "type": "Shop",
+   "x": 11180,
+   "z": -9700,
+   "desc": "A large shop."
+  }
+ ],
+ "roads": [
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "EW",
+   "width": 11,
+   "from": [
+    -23601,
+    2
+   ],
+   "to": [
+    6078,
+    2
+   ]
+  },
+  {
+   "name": "LH20",
+   "major": true,
+   "dir": "NS",
+   "width": 11,
+   "from": [
+    -3403,
+    -18498
+   ],
+   "to": [
+    -3403,
+    2
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "EW",
+   "width": 11,
+   "from": [
+    11690,
+    4
+   ],
+   "to": [
+    25000,
+    4
+   ]
+  },
+  {
+   "name": "LH105",
+   "major": false,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    11081,
+    -9386
+   ],
+   "to": [
+    11081,
+    3
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "EW",
+   "width": 11,
+   "from": [
+    7745,
+    3
+   ],
+   "to": [
+    11241,
+    3
+   ]
+  },
+  {
+   "name": "LH305",
+   "major": false,
+   "dir": "NS",
+   "width": 11,
+   "from": [
+    -13609,
+    2
+   ],
+   "to": [
+    -13609,
+    2606
+   ]
+  },
+  {
+   "name": "LH20",
+   "major": true,
+   "dir": "EW",
+   "width": 10,
+   "from": [
+    -5874,
+    -18498
+   ],
+   "to": [
+    -3403,
+    -18498
+   ]
+  },
+  {
+   "name": "LH120",
+   "major": false,
+   "dir": "EW",
+   "width": 10,
+   "from": [
+    -5353,
+    -14303
+   ],
+   "to": [
+    -3403,
+    -14303
+   ]
+  },
+  {
+   "name": "LH10",
+   "major": true,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    3,
+    1742
+   ],
+   "to": [
+    3,
+    3397
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "EW",
+   "width": 11,
+   "from": [
+    6127,
+    3
+   ],
+   "to": [
+    7590,
+    3
+   ]
+  },
+  {
+   "name": "LH10",
+   "major": true,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    157,
+    356
+   ],
+   "to": [
+    157,
+    1742
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "EW",
+   "width": 10,
+   "from": [
+    -25000,
+    -354
+   ],
+   "to": [
+    -23617,
+    -354
+   ]
+  },
+  {
+   "name": "LH505",
+   "major": false,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    19650,
+    -1350
+   ],
+   "to": [
+    19650,
+    4
+   ]
+  },
+  {
+   "name": "LH20",
+   "major": true,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    -5874,
+    -19383
+   ],
+   "to": [
+    -5874,
+    -18498
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "EW",
+   "width": 10,
+   "from": [
+    11241,
+    -341
+   ],
+   "to": [
+    11690,
+    -341
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    -23601,
+    -354
+   ],
+   "to": [
+    -23601,
+    2
+   ]
+  },
+  {
+   "name": "LH10",
+   "major": true,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    -1,
+    2
+   ],
+   "to": [
+    -1,
+    356
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    11690,
+    -341
+   ],
+   "to": [
+    11690,
+    4
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    11241,
+    -341
+   ],
+   "to": [
+    11241,
+    3
+   ]
+  },
+  {
+   "name": "LH10",
+   "major": true,
+   "dir": "EW",
+   "width": 10,
+   "from": [
+    -1,
+    356
+   ],
+   "to": [
+    157,
+    356
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "EW",
+   "width": 12,
+   "from": [
+    7590,
+    -56
+   ],
+   "to": [
+    7745,
+    -56
+   ]
+  },
+  {
+   "name": "LH10",
+   "major": true,
+   "dir": "EW",
+   "width": 10,
+   "from": [
+    3,
+    1742
+   ],
+   "to": [
+    157,
+    1742
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "NS",
+   "width": 11,
+   "from": [
+    7745,
+    -56
+   ],
+   "to": [
+    7745,
+    3
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "NS",
+   "width": 10,
+   "from": [
+    7590,
+    -56
+   ],
+   "to": [
+    7590,
+    3
+   ]
+  },
+  {
+   "name": "LH5",
+   "major": true,
+   "dir": "EW",
+   "width": 12,
+   "from": [
+    6078,
+    -17
+   ],
+   "to": [
+    6127,
+    -17
+   ]
+  }
+ ],
+ "paths": [
+  {
+   "name": "LH10",
+   "status": "construction",
+   "points": [
+    [
+     3,
+     3397
+    ],
+    [
+     3,
+     13885
+    ]
+   ]
+  },
+  {
+   "name": "LH505",
+   "status": "construction",
+   "points": [
+    [
+     19650,
+     -1350
+    ],
+    [
+     19650,
+     -5949
+    ]
+   ]
+  },
+  {
+   "name": "LH5 Connector",
+   "status": "closed",
+   "points": [
+    [
+     11241,
+     -341
+    ],
+    [
+     11087,
+     -341
+    ]
+   ]
+  },
+  {
+   "name": "Old Forest Rd",
+   "status": "path",
+   "points": [
+    [
+     1712,
+     -4
+    ],
+    [
+     1712,
+     -682
+    ]
+   ]
+  }
+ ]
+}
