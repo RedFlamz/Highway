@@ -740,14 +740,24 @@ if (route) {
   }
 
   // Turn the route into steps like "Turn left onto LH105"
+  // Names of other roads that meet the route at this junction (not counting walking links)
+  function crossRoads(node, onName) {
+    const names = new Set();
+    node.edges.forEach(e => { if (e.road && e.road.name !== onName) names.add(e.road.name); });
+    return [...names];
+  }
+
   function routeSteps(route, destName) {
     const steps = [];
     route.legs.forEach(l => {
       const v = [(l.to.x - l.from.x) / l.len, (l.to.z - l.from.z) / l.len];
       const last = steps[steps.length - 1];
       const sameWay = last && last.road === l.road && (l.road === null || v[0] * last.v[0] + v[1] * last.v[1] > 0.98);
-      if (sameWay) { last.len += l.len; last.to = l.to; last.time += l.cost; }
-      else steps.push({ road: l.road, v, len: l.len, time: l.cost, from: l.from, to: l.to });
+      // going straight through a junction with a differently named road gets its own step,
+      // so the directions say "Continue straight past LH105"
+      const passing = l.road ? crossRoads(l.from, l.road.name) : [];
+      if (sameWay && !passing.length) { last.len += l.len; last.to = l.to; last.time += l.cost; }
+      else steps.push({ road: l.road, v, len: l.len, time: l.cost, from: l.from, to: l.to, passing });
     });
     // tiny off-road hops (already standing on the road) aren't worth an instruction
     const kept = steps.filter(s => s.road || s.len >= 12 || steps.length === 1);
@@ -755,7 +765,7 @@ if (route) {
     const keep = [];
     kept.forEach(s => {
       const last = keep[keep.length - 1];
-      if (last && s.road && last.road && s.road.name === last.road.name &&
+      if (last && s.road && last.road && s.road.name === last.road.name && !(s.passing && s.passing.length) &&
           (s.len < NAV.jog || last.jogged || last.len < NAV.jog) &&
           !(s.len >= NAV.jog && last.len >= NAV.jog && s.v[0] * last.mainV[0] + s.v[1] * last.mainV[1] < 0.9)) {
         last.len += s.len; last.time += s.time; last.to = s.to; last.jogged = s.len < NAV.jog;
@@ -780,9 +790,12 @@ if (route) {
       const turn = dot > 0.9 ? "straight" : dot < -0.9 ? "uturn" : cross > 0 ? "right" : "left";
       s.icon = turn;
       const verb = { straight: "Continue", uturn: "Make a U-turn", right: "Turn right", left: "Turn left" }[turn];
-      s.text = s.road.name === prevStep.road.name
-        ? `${verb} to stay on ${s.road.name}${turn === "straight" ? "" : ` (heading ${dir})`}`
-        : `${verb} onto ${s.road.name}`;
+      const sameRoad = s.road.name === prevStep.road.name;
+      s.text = sameRoad && turn === "straight" && s.passing && s.passing.length
+        ? `Continue straight past ${s.passing.join(" and ")}`
+        : sameRoad
+          ? `${verb} to stay on ${s.road.name}${turn === "straight" ? "" : ` (heading ${dir})`}`
+          : `${verb} onto ${s.road.name}`;
     });
     return keep;
   }
@@ -817,8 +830,107 @@ if (route) {
     return (data.players || []).find(p => String(p.name).toLowerCase() === name.toLowerCase()) || null;
   }
 
+  // ---- Voice directions (browser text-to-speech), announced like Google Maps ----
+  const voiceBox = document.getElementById("nav-voice");
+  const canSpeak = "speechSynthesis" in window;
+  const voice = { on: false, key: null, done: new Set(), arrived: false };
+  // blocks before a maneuver; the last one is big enough that a 2 s update (~80 blocks by boat) can't skip it
+  const SAY_AT = [1000, 300, 100];
+  const lower = t => /^(LH\d|\/pw)/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1);
+  const sayable = t => t.replace(/\bLH(\d+)/g, "Lotus Highway $1").replace(/\/pw\b/g, "slash P W")
+    .replace(/\bX (-?\d+), Z (-?\d+)/g, "X $1, Z $2").replace(/(\d),(\d)/g, "$1$2");
+  const roundSay = d => d >= 500 ? Math.round(d / 100) * 100 : Math.max(10, Math.round(d / 50) * 50);
+  // Pick the nicest English voice the device has. Best first: Edge's "Natural" (neural) voices,
+  // then other neural/online voices, Google's Chrome voices, Apple's Siri-quality voices, then the rest.
+  const voicePick = document.getElementById("nav-voice-pick");
+  const VOICE_RANK = [/natural/i, /neural|premium|enhanced/i, /online/i, /google us english/i, /google uk english female/i,
+    /google/i, /siri|samantha|ava|allison|serena|karen|daniel|moira|tessa/i, /aria|jenny|zira|guy/i];
+  let chosenVoice = null;
+  function englishVoices() { return canSpeak ? speechSynthesis.getVoices().filter(v => /^en([-_]|$)/i.test(v.lang)) : []; }
+  function rankVoice(v) {
+    const r = VOICE_RANK.findIndex(re => re.test(v.name));
+    const sameLang = v.lang.replace("_", "-").toLowerCase() === (navigator.language || "en-US").toLowerCase();
+    return (r < 0 ? VOICE_RANK.length : r) * 4 + (sameLang ? 0 : 2) + (v.localService ? 1 : 0);
+  }
+  function pickVoice() {
+    const voices = englishVoices().sort((a, b) => rankVoice(a) - rankVoice(b) || a.name.localeCompare(b.name));
+    if (!voices.length) return;
+    let saved = null;
+    try { saved = localStorage.getItem("highway-nav-voice-name"); } catch {}
+    chosenVoice = voices.find(v => v.name === saved) || voices[0];
+    if (voicePick) {
+      voicePick.innerHTML = voices.map(v => `<option value="${v.name.replace(/"/g, "&quot;")}">` +
+        `${v.name.replace(/^Microsoft |^Google /, "").replace(/ - English.*| Online \(Natural\)/, "")}${/natural/i.test(v.name) ? " (natural)" : ""}</option>`).join("");
+      voicePick.value = chosenVoice.name;
+      voicePick.hidden = !voice.on;
+    }
+  }
+  if (canSpeak) { pickVoice(); speechSynthesis.addEventListener("voiceschanged", pickVoice); }
+
+  function speak(text) {
+    if (!voice.on || !canSpeak) return;
+    // queue rather than interrupt, so back-to-back callouts are both heard (stopping clears the queue)
+    const u = new SpeechSynthesisUtterance(sayable(text));
+    if (chosenVoice) { u.voice = chosenVoice; u.lang = chosenVoice.lang; }
+    u.rate = 1; u.pitch = 1;
+    speechSynthesis.speak(u);
+  }
+  if (voiceBox) {
+    if (!canSpeak) { voiceBox.disabled = true; voiceBox.closest("label").title = "Your browser can't read text out loud"; }
+    try { voiceBox.checked = canSpeak && localStorage.getItem("highway-nav-voice") === "1"; } catch {}
+    voice.on = voiceBox.checked;
+    if (voicePick) voicePick.hidden = !voice.on || !chosenVoice;
+    voiceBox.addEventListener("change", () => {
+      voice.on = voiceBox.checked;
+      try { localStorage.setItem("highway-nav-voice", voice.on ? "1" : "0"); } catch {}
+      if (voicePick) voicePick.hidden = !voice.on || !chosenVoice;
+      if (voice.on) speak("Voice directions on");           // also unlocks speech on phones (needs a tap)
+      else if (canSpeak) speechSynthesis.cancel();
+    });
+    if (voicePick) voicePick.addEventListener("change", () => {
+      chosenVoice = englishVoices().find(v => v.name === voicePick.value) || chosenVoice;
+      try { localStorage.setItem("highway-nav-voice-name", chosenVoice.name); } catch {}
+      speechSynthesis.cancel();
+      speak("In 300 blocks, turn left onto LH105.");        // sample so you can hear it
+    });
+  }
+
+  // Called on every position update with the fresh route
+  // going straight through an intersection: only one callout, at 250 blocks
+  const PASS_AT = 250;
+  const isPass = s => !!(s && s.icon === "straight" && s.passing && s.passing.length);
+  function announce(steps, dest, first) {
+    if (!voice.on) return;
+    const now = steps[0], next = steps[1];
+    const d = now.len;                                       // distance to the next maneuver
+    const pass = isPass(next), sayAt = pass ? [PASS_AT] : SAY_AT;
+    const what = next ? lower(next.text) : `arrive at ${dest.name}`;
+    const key = next ? `${next.text}@${Math.round(next.from.x / 25)},${Math.round(next.from.z / 25)}` : `arrive@${dest.name}`;
+    if (first) {
+      voice.key = key; voice.keyPass = pass; voice.done = new Set(sayAt.filter(t => d < t)); voice.arrived = false;
+      speak(`Starting route to ${dest.name}. ${now.text}` +
+        (next && !pass ? `, then in ${roundSay(d)} blocks, ${what}.` : ` for ${roundSay(d)} blocks.`));
+      return;
+    }
+    if (key !== voice.key) {                                 // finished a maneuver (or rerouted)
+      const wasPass = voice.keyPass;
+      voice.key = key; voice.keyPass = pass; voice.done = new Set(sayAt.filter(t => d < t * 0.9));
+      if (wasPass) return;                                   // just went straight through: nothing more to say
+      if (d >= 400) speak(`${now.text.startsWith("Continue") ? now.text : `Continue on ${now.road ? now.road.name : "this path"}`} for ${roundSay(d)} blocks.`);
+      else if (!pass && d < SAY_AT[SAY_AT.length - 1]) speak(next ? `${next.text}.` : `Your destination, ${dest.name}, is ahead.`);
+      return;
+    }
+    const t = sayAt.find(t => d <= t && !voice.done.has(t));
+    if (t === undefined) return;
+    sayAt.filter(x => x >= t).forEach(x => voice.done.add(x));
+    if (pass) speak(`In ${roundSay(d)} blocks, ${what}.`);
+    else if (t === SAY_AT[SAY_AT.length - 1]) speak(next ? `${next.text}.` : `Your destination, ${dest.name}, is ahead.`);
+    else speak(next ? `In ${roundSay(d)} blocks, ${what}.` : `In ${roundSay(d)} blocks, you'll arrive at ${dest.name}.`);
+  }
+
   async function navTick(first) {
-    if (!nav.active || (document.hidden && !first)) return;
+    // keep updating in the background while voice is on (you'll be looking at the game, not the page)
+    if (!nav.active || (document.hidden && !first && !voice.on)) return;
     const name = navName.value.trim();
     let p;
     try { p = await fetchPlayer(name); }
@@ -858,6 +970,7 @@ if (route) {
       showBanner(`<div class="nb-icon">${icon("flag")}</div><div><div class="nb-main">You've arrived</div><div class="nb-sub">${dest.name}</div></div>`);
       navSteps.hidden = true;
       navMessage(`Arrived at ${dest.name}.`, "ok");
+      if (!voice.arrived) { voice.arrived = true; speak(`You have arrived at ${dest.name}.`); }
       if (nav.follow) liveMap.panTo(ll(...here));
       return;
     }
@@ -885,6 +998,8 @@ if (route) {
       `<span class="ns-text">${s.text}</span><span class="ns-len">${fmtBlocks(s.len)}</span></li>`).join("") +
       `<li class="arrive"><span class="ns-icon">${icon("flag")}</span><span class="ns-text">Arrive at ${dest.name}</span></li>`;
     navMessage(`${fmtBlocks(total)} to ${dest.name} · about ${fmtTime(time)} (boat on the Highway). Updates every ${NAV.pollSeconds}s.`, "ok");
+    voice.arrived = false;
+    announce(steps, dest, first || voice.key === null);
 
     if (first) liveMap.setView(ll(...here), Math.max(liveMap.getZoom(), 1));
     else if (nav.follow) liveMap.panTo(ll(...here), { animate: true, duration: 0.5 });
@@ -937,6 +1052,8 @@ if (route) {
     if (nav.layer) nav.layer.clearLayers();
     if (nav.marker) { nav.marker.remove(); nav.marker = null; }
     nav.player = null;
+    voice.key = null; voice.arrived = false;
+    if (canSpeak) speechSynthesis.cancel();
     navBanner.hidden = true; navSteps.hidden = true;
     if (nav.recenter) nav.recenter.getContainer().hidden = true;
     navGo.textContent = "Start";

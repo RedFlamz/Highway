@@ -39,6 +39,12 @@
         <label class="nav-field">Z<input id="nav-z" type="number" step="1" inputmode="numeric"></label>
       </span>
       <button type="submit" class="nav-go" id="nav-go">Start</button>
+      <label class="nav-voice" title="Read directions out loud">
+        <input type="checkbox" id="nav-voice" role="switch">
+        <span class="nav-switch" aria-hidden="true"></span>
+        Voice directions
+      </label>
+      <select id="nav-voice-pick" class="nav-voice-pick" aria-label="Voice" hidden></select>
     </div>
     <p class="nav-status" id="nav-status" role="status" aria-live="polite"></p>
   </form>
