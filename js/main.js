@@ -838,8 +838,28 @@ if (route) {
   // enough that a 2 s update (~80 blocks by boat) can't skip it, and short enough to still be on time.
   const SAY_AT = [1000, 150];
   const lower = t => /^(LH\d|\/pw)/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1);
-  const sayable = t => t.replace(/\bLH(\d+)/g, "Lotus Highway $1").replace(/\/pw\b/g, "slash P W")
-    .replace(/\bX (-?\d+), Z (-?\d+)/g, "X $1, Z $2").replace(/(\d),(\d)/g, "$1$2");
+  // Numbers read out in words so voices don't rush them
+  const ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+    "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+  const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+  function words(n) {
+    if (n < 0) return "minus " + words(-n);
+    if (n < 20) return ONES[n];
+    if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? " " + ONES[n % 10] : "");
+    if (n < 1000) return ONES[Math.floor(n / 100)] + " hundred" + (n % 100 ? " " + words(n % 100) : "");
+    if (n < 1e4 && n % 100 === 0 && n % 1000) return words(n / 100) + " hundred";   // 1200 → "twelve hundred"
+    if (n < 1e6) return words(Math.floor(n / 1000)) + " thousand" + (n % 1000 ? " " + words(n % 1000) : "");
+    return String(n);
+  }
+  // Highway numbers like real US highways: 5 "five", 20 "twenty", 305 "three oh five", 120 "one twenty", 1405 "fourteen oh five"
+  function highwayNumber(s) {
+    const n = +s;
+    if (s.length <= 2 || n % 100 === 0) return words(n);
+    const head = words(Math.floor(n / 100)), tail = n % 100;
+    return head + " " + (tail < 10 ? "oh " + ONES[tail] : words(tail));
+  }
+  const sayable = t => t.replace(/\bLH(\d+)/g, (_, n) => "Lotus Highway " + highwayNumber(n)).replace(/\/pw\b/g, "slash P W")
+    .replace(/(\d),(\d)/g, "$1$2").replace(/-?\b\d+\b/g, m => words(+m));
   const roundSay = d => d >= 500 ? Math.round(d / 100) * 100 : Math.max(10, Math.round(d / 50) * 50);
   // Pick the nicest English voice the device has. Best first: Edge's "Natural" (neural) voices,
   // then other neural/online voices, Google's Chrome voices, Apple's Siri-quality voices, then the rest.
@@ -853,45 +873,123 @@ if (route) {
     const sameLang = v.lang.replace("_", "-").toLowerCase() === (navigator.language || "en-US").toLowerCase();
     return (r < 0 ? VOICE_RANK.length : r) * 4 + (sameLang ? 0 : 2) + (v.localService ? 1 : 0);
   }
+
+  // Piper: a free AI voice that runs inside the browser (sounds like Edge's natural voices in any browser).
+  // Nothing is downloaded until someone picks it in the dropdown. The model (~63 MB) is then kept in the
+  // browser's storage, so it only downloads once.
+  const PIPER_LIB = "https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm";
+  const PIPER_VOICES = { "en_US-hfc_female-medium": "Piper female", "en_US-hfc_male-medium": "Piper male" };
+  const PIPER_RATE = 0.93;   // playback speed (1 = as generated; lower = slower)
+  const canPiper =!!(window.WebAssembly && navigator.storage && navigator.storage.getDirectory && window.Audio);
+  const voiceLoad = document.getElementById("nav-voice-load");
+  const piper = { id: null, lib: null, ready: new Set(), loading: {}, audio: null, queue: Promise.resolve(), gen: 0 };
+  try { JSON.parse(localStorage.getItem("highway-piper-ready") || "[]").forEach(id => piper.ready.add(id)); } catch {}
+  const savedVoice = () => { try { return localStorage.getItem("highway-nav-voice-name"); } catch { return null; } };
+  const saveVoice = name => { try { localStorage.setItem("highway-nav-voice-name", name); } catch {} };
+  const showPick = () => { if (voicePick) voicePick.hidden = !voice.on || !voicePick.options.length; };
+
   function pickVoice() {
     const voices = englishVoices().sort((a, b) => rankVoice(a) - rankVoice(b) || a.name.localeCompare(b.name));
-    if (!voices.length) return;
-    let saved = null;
-    try { saved = localStorage.getItem("highway-nav-voice-name"); } catch {}
-    chosenVoice = voices.find(v => v.name === saved) || voices[0];
-    if (voicePick) {
-      voicePick.innerHTML = voices.map(v => `<option value="${v.name.replace(/"/g, "&quot;")}">` +
-        `${v.name.replace(/^Microsoft |^Google /, "").replace(/ - English.*| Online \(Natural\)/, "")}${/natural/i.test(v.name) ? " (natural)" : ""}</option>`).join("");
-      voicePick.value = chosenVoice.name;
-      voicePick.hidden = !voice.on;
-    }
+    const saved = savedVoice();
+    chosenVoice = voices.find(v => v.name === saved) || voices[0] || null;
+    const savedPiper = saved && saved.startsWith("piper:") && saved.slice(6);
+    // a saved Piper voice is only used again if it finished downloading before
+    if (!piper.id && canPiper && PIPER_VOICES[savedPiper] && piper.ready.has(savedPiper)) piper.id = savedPiper;
+    if (!voicePick) return;
+    const esc = s => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    voicePick.innerHTML = voices.map(v => `<option value="${esc(v.name)}">` +
+      `${esc(v.name.replace(/^Microsoft |^Google /, "").replace(/ - English.*| Online \(Natural\)/, ""))}${/natural/i.test(v.name) ? " (natural)" : ""}</option>`).join("") +
+      (canPiper ? Object.entries(PIPER_VOICES).map(([id, label]) =>
+        `<option value="piper:${id}">${label} (${piper.ready.has(id) ? "downloaded" : "needs a ~80 MB download"})</option>`).join("") : "");
+    voicePick.value = piper.id ? "piper:" + piper.id : chosenVoice ? chosenVoice.name : "";
+    showPick();
   }
-  if (canSpeak) { pickVoice(); speechSynthesis.addEventListener("voiceschanged", pickVoice); }
+  pickVoice();
+  if (canSpeak) speechSynthesis.addEventListener("voiceschanged", pickVoice);
 
-  function speak(text) {
-    if (!voice.on || !canSpeak) return;
+  function piperStatus(text, busy = true) {
+    if (!voiceLoad) return;
+    voiceLoad.hidden = !text; voiceLoad.textContent = text || ""; voiceLoad.classList.toggle("idle", !busy);
+  }
+  // Load the Piper engine and voice (downloads once, with progress), then warm it up
+  function loadPiper(id) {
+    if (piper.lib && piper.ready.has(id) && piper.warm === id) return Promise.resolve();
+    if (piper.loading[id]) return piper.loading[id];
+    const fresh = !piper.ready.has(id);
+    return piper.loading[id] = (async () => {
+      piperStatus(fresh ? "Loading voice model…" : "Starting voice…");
+      piper.lib = piper.lib || await import(PIPER_LIB);
+      // the first phrase downloads the model (if needed) plus the speech engine's files
+      await piper.lib.predict({ text: "Ready.", voiceId: id }, e => {
+        if (!fresh) return;
+        const mb = Math.round(e.loaded / 1e6);
+        piperStatus(e.total ? `Loading voice model… ${Math.round(e.loaded / e.total * 100)}%` : `Loading voice model… ${mb} MB`);
+      });
+      piper.ready.add(id); piper.warm = id;
+      try { localStorage.setItem("highway-piper-ready", JSON.stringify([...piper.ready])); } catch {}
+      if (fresh) { pickVoice(); if (voicePick) voicePick.value = "piper:" + id; }
+      piperStatus("");
+    })().finally(() => { delete piper.loading[id]; });
+  }
+  function playClip(blob) {
+    return new Promise(done => {
+      const a = new Audio(URL.createObjectURL(blob));
+      piper.audio = a;
+      a.preservesPitch = true; a.playbackRate = PIPER_RATE;   // a touch slower than the model's natural pace
+      a.onended = a.onerror = () => { URL.revokeObjectURL(a.src); if (piper.audio === a) piper.audio = null; done(); };
+      a.play().catch(a.onended);
+    });
+  }
+  function speakPiper(text) {
+    const gen = piper.gen, id = piper.id;
+    // start making the audio right away, but play clips one after another
+    const clip = loadPiper(id).then(() => piper.lib.predict({ text, voiceId: id }));
+    piper.queue = piper.queue.then(() => clip).then(blob => gen === piper.gen && playClip(blob)).catch(err => {
+      console.warn("Piper voice failed:", err);
+      if (gen !== piper.gen || piper.id !== id) return;
+      piper.id = null;
+      if (voicePick && chosenVoice) voicePick.value = chosenVoice.name;
+      piperStatus(chosenVoice ? "Couldn't load the Piper voice, so the browser voice is used instead." : "Couldn't load the Piper voice.", false);
+      setTimeout(() => piperStatus(""), 6000);
+      speakBrowser(text);
+    });
+  }
+  function speakBrowser(text) {
+    if (!canSpeak) return;
     // queue rather than interrupt, so back-to-back callouts are both heard (stopping clears the queue)
     const u = new SpeechSynthesisUtterance(sayable(text));
     if (chosenVoice) { u.voice = chosenVoice; u.lang = chosenVoice.lang; }
     u.rate = 1; u.pitch = 1;
     speechSynthesis.speak(u);
   }
+  function speak(text) {
+    if (!voice.on) return;
+    if (piper.id) speakPiper(sayable(text)); else speakBrowser(text);
+  }
+  function stopSpeech() {
+    if (canSpeak) speechSynthesis.cancel();
+    piper.gen++; piper.queue = Promise.resolve();
+    if (piper.audio) { piper.audio.pause(); piper.audio = null; }
+  }
   if (voiceBox) {
-    if (!canSpeak) { voiceBox.disabled = true; voiceBox.closest("label").title = "Your browser can't read text out loud"; }
-    try { voiceBox.checked = canSpeak && localStorage.getItem("highway-nav-voice") === "1"; } catch {}
+    if (!canSpeak && !canPiper) { voiceBox.disabled = true; voiceBox.closest("label").title = "Your browser can't read text out loud"; }
+    try { voiceBox.checked = !voiceBox.disabled && localStorage.getItem("highway-nav-voice") === "1"; } catch {}
     voice.on = voiceBox.checked;
-    if (voicePick) voicePick.hidden = !voice.on || !chosenVoice;
+    showPick();
+    if (voice.on && piper.id) loadPiper(piper.id).catch(() => piperStatus(""));   // already downloaded: just get it ready
     voiceBox.addEventListener("change", () => {
       voice.on = voiceBox.checked;
       try { localStorage.setItem("highway-nav-voice", voice.on ? "1" : "0"); } catch {}
-      if (voicePick) voicePick.hidden = !voice.on || !chosenVoice;
+      showPick();
       if (voice.on) speak("Voice directions on");           // also unlocks speech on phones (needs a tap)
-      else if (canSpeak) speechSynthesis.cancel();
+      else stopSpeech();
     });
     if (voicePick) voicePick.addEventListener("change", () => {
-      chosenVoice = englishVoices().find(v => v.name === voicePick.value) || chosenVoice;
-      try { localStorage.setItem("highway-nav-voice-name", chosenVoice.name); } catch {}
-      speechSynthesis.cancel();
+      stopSpeech();
+      const v = voicePick.value;
+      if (v.startsWith("piper:")) piper.id = v.slice(6);    // downloads now (first time only), showing progress
+      else { piper.id = null; chosenVoice = englishVoices().find(x => x.name === v) || chosenVoice; }
+      saveVoice(v);
       speak("In 300 blocks, turn left onto LH105.");        // sample so you can hear it
     });
   }
@@ -1125,7 +1223,7 @@ if (route) {
     if (nav.marker) { nav.marker.remove(); nav.marker = null; }
     nav.player = null;
     voice.key = null; voice.arrived = false;
-    if (canSpeak && !o.keepSpeech) speechSynthesis.cancel();
+    if (!o.keepSpeech) stopSpeech();
     if (!o.keepBanner) navBanner.hidden = true;
     navSteps.hidden = true;
     if (nav.recenter) nav.recenter.getContainer().hidden = true;
