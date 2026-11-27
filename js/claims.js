@@ -22,7 +22,7 @@ const CLAIMS = [
   { owner: "Brightnesss", x1: -9373, z1: -9446, x2: -9317, z2: -9428 },
   { owner: "Brightnesss", x1: 749, z1: -3921, x2: 821, z2: -3854 },
   { owner: "Brightnesss", x1: -4024, z1: -5690, x2: -3930, z2: -5633 },
-  { owner: "RedFlamz", x1: -2, z1: 1747, x2: 8, z2: 3285 },
+  { owner: "RedFlamz", x1: -2, z1: 1747, x2: 8, z2: 3397 },
   { owner: "Brightnesss", x1: 5305, z1: 7453, x2: 5343, z2: 7490 },
   { owner: "Brightnesss", x1: -2044, z1: 7605, x2: -1987, z2: 7661 },
   { owner: "Brightnesss", x1: -3513, z1: -5291, x2: -3498, z2: -5174 },
