@@ -84,7 +84,7 @@ const ROAD_NAMES = [
   { near: [-24308, -354],   name: "LH5",         major: true },   // last stretch to the -X end
   // south from spawn
   { near: [-1, 220],        name: "LH10",          major: true },
-  { near: [3, 2514],        name: "LH10",          major: true },
+  { near: [3, 3100],        name: "LH10",          major: true },
   // Brightnesss's roads
   { near: [-3402, -2658],   name: "LH20", major: true },  // main road to Shop/EXP
   { near: [-3402, -12598],  name: "LH20", major: true },
@@ -94,7 +94,7 @@ const ROAD_NAMES = [
   // branches
   { near: [11081, -4581],   name: "LH105",       major: false },
   { near: [-13609, 1023],   name: "LH305",       major: false },
-  { near: [19650, -2998],   name: "LH205",       major: false },  // north branch, no stop yet
+  { near: [19650, -2998],   name: "LH505",       major: false },  // north branch, no stop yet
   
 ];
 
