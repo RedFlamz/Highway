@@ -90,6 +90,22 @@ section{margin-bottom:3.5rem}
 .btn.alt{background:var(--petal);color:#1f3b36}
 .btn.alt:hover{background:#f0bccb}
 
+/* ---- Mod page ---- */
+.beta-tag{display:inline-block;font-size:.62em;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:var(--petal);color:#1f3b36;border-radius:99px;padding:.1em .55em;vertical-align:.15em;margin-left:.25em}
+.beta-tag.big{font-size:.35em;vertical-align:.6em}
+.download-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem 1.5rem;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin:1.5rem 0 3rem}
+.download-card .btn{margin:0}
+.download-info b{display:block;font-size:1.3rem}
+.download-info span{color:var(--muted);font-size:.95rem}
+.steps,.notes{padding-left:1.3rem;max-width:46rem}
+.steps li,.notes li{margin:.55rem 0;line-height:1.6}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);background:var(--card)}
+.commands{width:100%;border-collapse:collapse;font-size:.97rem}
+.commands th,.commands td{text-align:left;padding:.65rem 1rem;border-top:1px solid var(--line);vertical-align:top}
+.commands thead th{border-top:0;font-size:.85rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.commands td:first-child{white-space:nowrap}
+main :not(pre)>code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;background:var(--petal-soft);color:var(--ink);padding:.08em .4em;border-radius:6px}
+
 /* Map */
 .mapbox{overflow-x:auto;margin:1rem 0 1.5rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--petal-soft);box-shadow:var(--shadow)}
 #map{position:relative;min-width:640px}
