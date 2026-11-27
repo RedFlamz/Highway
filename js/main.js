@@ -645,7 +645,7 @@ if (route) {
   const navX = document.getElementById("nav-x"), navZ = document.getElementById("nav-z");
   const navGo = document.getElementById("nav-go"), navStatus = document.getElementById("nav-status");
   const navBanner = document.getElementById("nav-banner"), navSteps = document.getElementById("nav-steps");
-  const nav = { active: false, timer: null, follow: true, dest: null, player: null, layer: null, marker: null, recenter: null, lastBanner: "" };
+  const nav = { active: false, timer: null, follow: true, dest: null, player: null, layer: null, marker: null, recenter: null, lastBanner: "", markerYaw: null, bannerTimer: null };
 
   const fmtBlocks = n => `${Math.round(n).toLocaleString()} block${Math.round(n) === 1 ? "" : "s"}`;
   const fmtTime = s => s < 60 ? "under a minute" : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.round(s % 3600 / 60)} min`;
@@ -950,22 +950,81 @@ if (route) {
       return;
     }
     nav.player = p;
-    const here = [p.x, p.z], dest = nav.dest;
+    trackFix(p);
+    navRender([p.x, p.z], first);                            // directions always from the real position
+  }
+
+  // ---- Player position: real positions only, no prediction ----
+  // The arrow slides from the previous real position to the new one over GLIDE_MS so it doesn't
+  // jump; speed (from the last two real positions) is only shown in the status line.
+  const MAX_SPEED = 80;        // blocks/s - about a boat on blue ice; faster readings are treated as teleports
+  const GLIDE_MS = 500;        // how long the slide to a new real position takes
+  const track = { fix: null, v: [0, 0], offset: [0, 0], offsetAt: 0, yaw: 0, raf: 0, timer: null };
+
+  function estimate(t = performance.now()) {
+    const f = track.fix;
+    if (!f) return null;
+    // No guessing: always the last real position. When a new one arrives the arrow slides
+    // from where it was to the new spot over GLIDE_MS (animation between two real points).
+    const base = f.pos;
+    const k = Math.max(0, 1 - (t - track.offsetAt) / GLIDE_MS);
+    return [base[0] + track.offset[0] * k, base[1] + track.offset[1] * k];
+  }
+
+  function trackFix(p) {
+    const t = performance.now(), pos = [p.x, p.z], f = track.fix;
+    track.yaw = p.yaw;
+    if (!f) { track.fix = { pos, t }; track.v = [0, 0]; return; }
+    const shown = estimate(t);                               // where the arrow is right now
+    const dx = pos[0] - f.pos[0], dz = pos[1] - f.pos[1];
+    if (dx === 0 && dz === 0) {
+      track.v = [0, 0];                                      // same spot as last time: stopped
+    } else {
+      const dt = (t - f.t) / 1000;
+      let v = [dx / dt, dz / dt];
+      const speed = Math.hypot(...v);
+      if (dt > 8 || speed > MAX_SPEED * 1.5) v = [0, 0];     // long gap or teleport: don't guess
+      else if (speed > MAX_SPEED) v = v.map(c => c * MAX_SPEED / speed);
+      // smooth out jitter, but take the first reading as-is so it doesn't lag when you set off
+      track.v = track.v[0] || track.v[1] ? [track.v[0] * 0.3 + v[0] * 0.7, track.v[1] * 0.3 + v[1] * 0.7] : v;
+      if (Math.hypot(...track.v) < 0.5) track.v = [0, 0];
+    }
+    track.offset = [shown[0] - pos[0], shown[1] - pos[1]];
+    if (Math.hypot(...track.offset) > 200) track.offset = [0, 0];  // teleport: just jump
+    track.offsetAt = t;
+    track.fix = { pos, t };
+  }
+
+  // move the arrow every frame
+  function animateTrack() {
+    if (!nav.active) { track.raf = 0; return; }
+    const e = estimate();
+    if (e && nav.marker) nav.marker.setLatLng(L_.latLng(-e[1] / 8, e[0] / 8));
+    track.raf = requestAnimationFrame(animateTrack);
+  }
+
+  // Draw the route, banner, steps and voice from a position (real or estimated)
+  function navRender(here, first) {
+    if (!nav.active || !here) return;
+    const dest = nav.dest;
     const ll = (x, z) => L_.latLng(-z / 8, x / 8);
 
     // player arrow (yaw 0 = facing south / down the map)
-    const arrow = `<svg viewBox="0 0 40 40" width="34" height="34" style="transform:rotate(${p.yaw + 180}deg)">` +
+    const yaw = Math.round(track.yaw);
+    const arrow = `<svg viewBox="0 0 40 40" width="34" height="34" style="transform:rotate(${yaw + 180}deg)">` +
       `<circle cx="20" cy="20" r="17" fill="#4285f4" fill-opacity=".18"/>` +
       `<path d="M20 6l9 24-9-5-9 5z" fill="#4285f4" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
     if (!nav.marker) {
       nav.marker = L_.marker(ll(...here), { pane: "player", interactive: false, keyboard: false,
         icon: L_.divIcon({ className: "player-marker", iconSize: [34, 34], iconAnchor: [17, 17], html: arrow }) }).addTo(liveMap);
+      nav.markerYaw = yaw;
     } else {
-      nav.marker.setLatLng(ll(...here));
-      nav.marker.getElement().innerHTML = arrow;
+      const shown = estimate() || here;                      // mid-slide position, so it doesn't snap
+      nav.marker.setLatLng(ll(...shown));
+      if (nav.markerYaw !== yaw) { nav.marker.getElement().innerHTML = arrow; nav.markerYaw = yaw; }
     }
 
-    const toGo = Math.hypot(dest.x - p.x, dest.z - p.z);
+    const toGo = Math.hypot(dest.x - here[0], dest.z - here[1]);
     // Arrived (within arriveDistance, 16 blocks): say so, then end navigation automatically
     if (toGo <= NAV.arriveDistance) {
       if (nav.follow) liveMap.panTo(ll(...here));
@@ -999,12 +1058,14 @@ if (route) {
     navSteps.innerHTML = steps.map((s, k) => `<li class="${k === 0 ? "current" : ""}"><span class="ns-icon">${icon(s.icon)}</span>` +
       `<span class="ns-text">${s.text}</span><span class="ns-len">${fmtBlocks(s.len)}</span></li>`).join("") +
       `<li class="arrive"><span class="ns-icon">${icon("flag")}</span><span class="ns-text">Arrive at ${dest.name}</span></li>`;
-    navMessage(`${fmtBlocks(total)} to ${dest.name} · about ${fmtTime(time)} (boat on the Highway). Updates every ${NAV.pollSeconds}s.`, "ok");
+    const moving = Math.hypot(...track.v);
+    navMessage(`${fmtBlocks(total)} to ${dest.name} · about ${fmtTime(time)} (boat on the Highway)` +
+      (moving ? ` · moving ${Math.round(moving)} blocks/s` : "") + `. Position updates every ${NAV.pollSeconds}s.`, "ok");
     voice.arrived = false;
     announce(steps, dest, first || voice.key === null);
 
     if (first) liveMap.setView(ll(...here), Math.max(liveMap.getZoom(), 1));
-    else if (nav.follow) liveMap.panTo(ll(...here), { animate: true, duration: 0.5 });
+    else if (nav.follow) liveMap.panTo(ll(...here), { animate: true, duration: 0.25, easeLinearity: 1 });
   }
 
   function showBanner(html) {
@@ -1046,6 +1107,8 @@ if (route) {
     document.querySelector(".mapbox").scrollIntoView({ behavior: "smooth", block: "center" });
     navTick(true);
     nav.timer = setInterval(navTick, NAV.pollSeconds * 1000);
+    // animates the arrow sliding between real positions (no prediction)
+    track.raf = requestAnimationFrame(animateTrack);
   }
 
   // stopNav(true) or stopNav({ keepMessage, keepSpeech, keepBanner })
@@ -1054,6 +1117,9 @@ if (route) {
     const keepMessage = o.keepMessage;
     nav.active = false;
     clearInterval(nav.timer);
+    clearInterval(track.timer); cancelAnimationFrame(track.raf);
+    Object.assign(track, { fix: null, v: [0, 0], offset: [0, 0], raf: 0, timer: null });
+    nav.markerYaw = null;
     clearTimeout(nav.bannerTimer);
     if (nav.layer) nav.layer.clearLayers();
     if (nav.marker) { nav.marker.remove(); nav.marker = null; }
