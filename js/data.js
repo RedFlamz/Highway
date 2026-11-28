@@ -14,7 +14,7 @@
 // Negative z is up on the map, positive z is down. z: 0 sits right on the highway.
 const LOCATIONS = [
   
-  { name: "SamaShop",  type: "Shop", x: -13610,  z: 2540, desc: "A shop by GumiSamaVT." },
+  { name: "SamaShop",  type: "Shop", x: -13605,  z: 2518, desc: "A shop by GumiSamaVT." },
   { name: "Regalian Empire",  type: "Town", x: -8430,   z: 0,  desc: "An empire ruled by Bloodhound412 with the support of Redflamz." },
   { name: "Bucees",  type: "Shop", x: -3404,  z: 0, desc: "A unfinished shop." },
   { name: "Shop/EXP",  type: "Shop", x: -3404,  z: -5600, desc: "/pw EXP and /pw Shop." },
