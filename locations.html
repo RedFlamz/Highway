@@ -65,7 +65,7 @@
   <div class="edit-panel" id="edit-panel" hidden>
     <strong>Map editor</strong>
     <p class="edit-msg" id="edit-msg"><b>Set road end</b>: make a road go further (or stop sooner).
-      <b>Draw path</b>: add a path, a road under construction or a closed road by clicking along it.</p>
+      <b>Draw path</b>: add a path, a side road, a road under construction or a closed road by clicking along it.</p>
     <div class="edit-actions">
       <button type="button" class="nav-go" id="edit-start">Set road end</button>
       <button type="button" class="nav-go" id="edit-path">Draw path</button>
@@ -73,12 +73,13 @@
       <button type="button" class="edit-secondary" id="edit-export" title="Roads, paths and stops for the Lotus Maps Minecraft mod">Download lotusmaps.json (for the mod)</button>
     </div>
     <div class="edit-path-form" id="edit-path-form" hidden>
-      <label class="nav-field">Path name
+      <label class="nav-field">Name
         <input id="edit-path-name" maxlength="40" placeholder="e.g. Spawn Walkway">
       </label>
       <label class="nav-field">Status
         <select id="edit-path-type">
           <option value="path">Path</option>
+          <option value="road">Side road</option>
           <option value="construction">Under construction</option>
           <option value="closed">Closed road</option>
         </select>
@@ -96,6 +97,11 @@
       <p>To keep it, paste into <code>PATHS</code> in <code>js/data.js</code>:</p>
       <pre id="edit-path-snippet"></pre>
       <button type="button" class="edit-secondary" id="edit-path-copy">Copy</button>
+    </div>
+    <div class="edit-out" id="edit-out-side" hidden>
+      <p>To keep it, paste into <code>SIDE_ROADS</code> in <code>js/data.js</code>:</p>
+      <pre id="edit-side-snippet"></pre>
+      <button type="button" class="edit-secondary" id="edit-side-copy">Copy</button>
     </div>
   </div>
   <div class="mapbox"><div id="map" hidden></div><div id="live"></div>

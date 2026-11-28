@@ -70,6 +70,23 @@ const PATHS = [
   { name: "Old Forest Rd", status: "path", points: [[1712, -4], [1712, -682]] }
 ];
 
+// ---------------- Side roads ----------------
+// Real roads you draw by hand, for roads that aren't claimed (or are claimed by someone not in
+// ROAD_SETTINGS.owners). They work exactly like the claimed roads: drawn as roads, used for directions
+// at roadSpeed, "Turn left onto ..." at junctions, and a shield if the name has a number (e.g. "LH15").
+// Both the website and the Lotus Maps mod use them.
+// name:   the road's name (ROAD_NAMES doesn't change side roads, set the name here)
+// major:  true = yellow highway, false = white road (default false)
+// width:  how wide it's drawn, in blocks (optional, default 10)
+// points: the corners in order, as [x, z]. Each piece runs straight north-south or east-west
+//         (a slanted piece is turned into an L: east-west first, then north-south).
+//         Start or end it on another road so they join.
+// Easiest way to make these: open locations.html?edit, click "Draw path", set Status to "Side road",
+// click along the road, then "Finish path" - the page shows the exact lines to paste here.
+const SIDE_ROADS = [
+  // { name: "Maple St", major: false, points: [[2500, 3], [2500, -800], [3200, -800]] },
+];
+
 // Hand-set road end points, for roads whose claims stop short (or run too far).
 // near: the current end of the road (any point within ~300 blocks of it)
 // to:   where it should end. The road stays straight, so only the X (east-west road) or

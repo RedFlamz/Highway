@@ -228,6 +228,7 @@ if (route) {
   const touches = (a, b) => [a.from, a.to].some(p => distToRoad(p, b) <= 20) || [b.from, b.to].some(p => distToRoad(p, a) <= 20);
 
   const previewExtensions = [];                              // end points being tried out with ?edit (not saved)
+  const previewSideRoads = [];                               // side roads being drawn with ?edit (not saved)
 
   // Turn claims (js/claims.js) into roads using ROAD_SETTINGS and IGNORE_CLAIMS from data.js
   function buildRoads() {
@@ -328,17 +329,48 @@ if (route) {
     });
     if (exts.length) snap(roads);
 
-    return roads.sort((a, b) => (b.a2 - b.a1) - (a.a2 - a.a1)).map(r => ({
-      dir: r.dir, owner: r.owner, width: r.width,
-      from: r.dir === "EW" ? [r.a1, r.c] : [r.c, r.a1], to: r.dir === "EW" ? [r.a2, r.c] : [r.c, r.a2] }));
+    // 4. side roads drawn by hand (SIDE_ROADS in data.js, plus any being drawn with ?edit):
+    //    each straight piece becomes a real road with the name it was given
+    const sides = sideRoadPieces();
+    if (sides.length) { roads.push(...sides); snap(roads); }
+
+    return roads.sort((a, b) => (b.a2 - b.a1) - (a.a2 - a.a1)).map(r => {
+      const out = { dir: r.dir, owner: r.owner, width: r.width,
+        from: r.dir === "EW" ? [r.a1, r.c] : [r.c, r.a1], to: r.dir === "EW" ? [r.a2, r.c] : [r.c, r.a2] };
+      if (r.side) Object.assign(out, { side: true, name: r.name, major: r.major });
+      return out;
+    });
+  }
+
+  // Side roads (SIDE_ROADS in data.js + previews) as road pieces. Corners are joined straight
+  // north-south / east-west; a slanted piece becomes an L (east-west first, then north-south).
+  function sideRoadPieces() {
+    const out = [];
+    [...(typeof SIDE_ROADS === "undefined" ? [] : SIDE_ROADS), ...previewSideRoads].forEach(s => {
+      if (!s || !Array.isArray(s.points) || s.points.length < 2) return;
+      const name = String(s.name || "Side Road"), major = !!s.major, width = Math.round(+s.width || 10);
+      const add = (a, b) => {
+        if (a[0] === b[0] && a[1] === b[1]) return;
+        const ew = a[1] === b[1];
+        const [lo, hi] = ew ? [Math.min(a[0], b[0]), Math.max(a[0], b[0])] : [Math.min(a[1], b[1]), Math.max(a[1], b[1])];
+        out.push({ dir: ew ? "EW" : "NS", c: ew ? a[1] : a[0], a1: lo, a2: hi, owner: "", width, len: hi - lo, side: true, name, major });
+      };
+      const pts = s.points.map(q => [+q[0], +q[1]]);
+      for (let k = 1; k < pts.length; k++) {
+        const a = pts[k - 1], b = pts[k];
+        if (a[0] !== b[0] && a[1] !== b[1]) { const corner = [b[0], a[1]]; add(a, corner); add(corner, b); }
+        else add(a, b);
+      }
+    });
+    return out;
   }
 
   function nameRoads() {
     const roads = buildRoads();
-    // 1. names set in data.js win
+    // 1. names set in data.js win (side roads already have theirs, from SIDE_ROADS)
     (typeof ROAD_NAMES === "undefined" ? [] : ROAD_NAMES).forEach(o => {
       let best = null, bd = 150;
-      roads.forEach(r => { const d = distToRoad(o.near, r); if (d < bd) { bd = d; best = r; } });
+      roads.forEach(r => { if (r.side) return; const d = distToRoad(o.near, r); if (d < bd) { bd = d; best = r; } });
       if (best) { best.name = o.name; if (o.major !== undefined) best.major = o.major; }
     });
     // 2. automatic names for the main lines (long roads first, short pieces only if still unnamed after step 3)
@@ -449,8 +481,9 @@ if (route) {
         const lengthText = r.pieces > 1
           ? `${r.total.toLocaleString()} blocks long in total (this stretch ${roadLen(r).toLocaleString()}), ${r.width} wide`
           : `${roadLen(r).toLocaleString()} blocks long, ${r.width} wide`;
-        line.bindPopup(`<strong>${r.name}</strong><span class="coords">${lengthText}</span>` +
-          `<p>From X ${r.from[0]}, Z ${r.from[1]} to X ${r.to[0]}, Z ${r.to[1]}.<br>Point on road: <code>[${mid[0]}, ${mid[1]}]</code></p>`,
+        line.bindPopup(`<strong>${escHTML(r.name)}</strong><span class="coords">${r.side ? "Side road, " : ""}${lengthText}</span>` +
+          `<p>From X ${r.from[0]}, Z ${r.from[1]} to X ${r.to[0]}, Z ${r.to[1]}.<br>` +
+          (r.side ? `Drawn by hand: change it in <code>SIDE_ROADS</code> in data.js.</p>` : `Point on road: <code>[${mid[0]}, ${mid[1]}]</code></p>`),
           { className: "live-popup", maxWidth: 280 });
       }
       roadLines.push({ line, part, r });
@@ -478,7 +511,7 @@ if (route) {
         if (ends.some(e => Math.hypot(e[0] - p[0], e[1] - p[1]) <= 20)) return;
         ends.push(p);
         L_.circleMarker(ll(...p), { radius: 5, weight: 2.5, className: "road-end", pane: "dots" })
-          .bindTooltip(`End of ${r.name}<br>X: ${p[0]}, Z: ${p[1]}`, { direction: "top", offset: [0, -6], className: "road-end-tip" })
+          .bindTooltip(`End of ${escHTML(r.name)}<br>X: ${p[0]}, Z: ${p[1]}`, { direction: "top", offset: [0, -6], className: "road-end-tip" })
           .addTo(roadsLayer);
       }));
     }
@@ -558,8 +591,8 @@ if (route) {
         placed.push(p);
         const rot = r.dir === "NS" ? 90 : 0;
         const html = num
-          ? `<span class="shield-wrap">${shieldSVG(num, r.name)}</span>`       // shields stay upright
-          : `<span class="${r.major ? "major" : ""}" style="transform:translate(-50%,-50%) rotate(${rot}deg)">${r.name}</span>`;
+          ? `<span class="shield-wrap">${shieldSVG(num, escHTML(r.name))}</span>`       // shields stay upright
+          : `<span class="${r.major ? "major" : ""}" style="transform:translate(-50%,-50%) rotate(${rot}deg)">${escHTML(r.name)}</span>`;
         L_.marker(at, {
           pane: "roadLabels", interactive: false, keyboard: false,
           icon: L_.divIcon({ className: "road-label", iconSize: [0, 0], html })
@@ -636,7 +669,8 @@ if (route) {
 
   // ================= Road editor (?edit): set where a road ends =================
   const editPanel = document.getElementById("edit-panel");
-  const edit = { step: 0, from: null, lines: [], marker: null, pts: [], pathLines: [], draft: null };
+  const edit = { step: 0, from: null, lines: [], marker: null, pts: [], pathLines: [], sideLines: [], draft: null };
+  const drawingSide = () => $id("edit-path-type").value === "road";   // the Status list's "Side road"
   const editMsg = text => { document.getElementById("edit-msg").innerHTML = text; };
   const $id = id => document.getElementById(id);
   if (editPanel && /[?&#]edit\b/.test(location.search + location.hash)) {
@@ -659,9 +693,18 @@ if (route) {
       drawDraft();
       editMsg("<b>Drawing a path:</b> click along the path, one click at each corner. Paths go dead straight " +
         "(north-south or east-west) from corner to corner; hold Shift while clicking for any angle. Clicks near a road or a stop snap onto it, " +
-        "so start and end the path on a road (or at a stop) so directions can use it. Then click <b>Finish path</b>.");
+        "so start and end the path on a road (or at a stop) so directions can use it. Then click <b>Finish path</b>. " +
+        "Pick <b>Side road</b> under Status for a real road: it's drawn and used for directions just like the claimed roads.");
     });
-    $id("edit-path-type").addEventListener("change", drawDraft);
+    $id("edit-path-type").addEventListener("change", () => {
+      // side roads are always straight, so a slanted piece drawn with Shift is squared off
+      if (drawingSide()) edit.pts = edit.pts.reduce((out, p) => {
+        const q = out[out.length - 1];
+        if (q && q[0] !== p[0] && q[1] !== p[1]) out.push([p[0], q[1]]);
+        out.push(p); return out;
+      }, []);
+      drawDraft(); if (edit.step === "path") pathProgress();
+    });
     $id("edit-path-undo").addEventListener("click", () => { edit.pts.pop(); drawDraft(); pathProgress(); });
     $id("edit-path-cancel").addEventListener("click", () => { cancelPath(); editMsg("Path cancelled."); });
     $id("edit-path-done").addEventListener("click", finishPath);
@@ -673,7 +716,8 @@ if (route) {
     $id("edit-clear").addEventListener("click", () => {
       previewExtensions.length = 0; edit.lines = [];
       previewPaths.length = 0; edit.pathLines = [];
-      $id("edit-out").hidden = true; $id("edit-out-paths").hidden = true;
+      previewSideRoads.length = 0; edit.sideLines = [];
+      $id("edit-out").hidden = true; $id("edit-out-paths").hidden = true; $id("edit-out-side").hidden = true;
       $id("edit-clear").hidden = true;
       redrawRoads();
       editMsg("Previews cleared.");
@@ -684,7 +728,7 @@ if (route) {
         e.target.textContent = "Copied!"; setTimeout(() => e.target.textContent = "Copy", 1500);
       });
     });
-    copier("edit-copy", "edit-snippet"); copier("edit-path-copy", "edit-path-snippet");
+    copier("edit-copy", "edit-snippet"); copier("edit-path-copy", "edit-path-snippet"); copier("edit-side-copy", "edit-side-snippet");
     // Lotus Maps mod: save lotusmaps.json next to index.html and upload it with the site
     $id("edit-export").addEventListener("click", () => {
       const blob = new Blob([JSON.stringify(lotusMapsData(), null, 1)], { type: "application/json" });
@@ -716,17 +760,22 @@ if (route) {
     if (!liveMap) return;
     if (edit.draft) edit.draft.clearLayers(); else edit.draft = L_.layerGroup().addTo(liveMap);
     if (!edit.pts.length) return;
-    const k = PATH_KIND[$id("edit-path-type").value], pts = edit.pts.map(p => L_.latLng(-p[1] / 8, p[0] / 8));
-    L_.polyline(pts, { pane: "route", color: "#fff", weight: k.weight + 3, interactive: false }).addTo(edit.draft);
+    // a side road looks like a minor road (white with a grey edge), paths like their kind
+    const side = drawingSide();
+    const k = side ? { color: "#fff", edge: "#7d7d7d", weight: 6, dash: null } : { ...PATH_KIND[$id("edit-path-type").value], edge: "#fff" };
+    const pts = edit.pts.map(p => L_.latLng(-p[1] / 8, p[0] / 8));
+    L_.polyline(pts, { pane: "route", color: k.edge, weight: k.weight + 3, lineJoin: side ? "miter" : "round", interactive: false }).addTo(edit.draft);
     L_.polyline(pts, { pane: "route", color: k.color, weight: k.weight, dashArray: k.dash, lineCap: "round", interactive: false }).addTo(edit.draft);
+    if (side) k.color = "#7d7d7d";                          // corner dots in the edge colour so they show on white
     pts.forEach((p, i) => L_.circleMarker(p, { pane: "dots", radius: i ? 4 : 6, weight: 2, color: k.color, fillColor: "#fff", fillOpacity: 1, interactive: false }).addTo(edit.draft));
   }
   function pathProgress() {
-    const n = edit.pts.length;
+    const n = edit.pts.length, what = drawingSide() ? "a side road" : "a path";
     const len = Math.round(pathLen({ points: edit.pts }));
-    editMsg(n ? `<b>Drawing a path:</b> ${n} point${n === 1 ? "" : "s"}${n > 1 ? `, ${len.toLocaleString()} blocks` : ""}. ` +
-      `Keep clicking corners, then <b>Finish path</b> (or press Enter). <b>Undo point</b> removes the last one, Esc cancels.`
-      : "<b>Drawing a path:</b> click where the path starts.");
+    editMsg(n ? `<b>Drawing ${what}:</b> ${n} point${n === 1 ? "" : "s"}${n > 1 ? `, ${len.toLocaleString()} blocks` : ""}. ` +
+      `Keep clicking corners, then <b>Finish path</b> (or press Enter). <b>Undo point</b> removes the last one, Esc cancels.` +
+      (drawingSide() ? " Side roads always run straight north-south or east-west." : "")
+      : `<b>Drawing ${what}:</b> click where it starts${drawingSide() ? " (on another road, so they join)" : ""}.`);
   }
   function endDrawing() {
     edit.step = 0; edit.pts = [];
@@ -740,8 +789,9 @@ if (route) {
   function finishPath() {
     if (edit.pts.length < 2) { editMsg("<b>Drawing a path:</b> a path needs at least two points. Click on the map to add them."); return; }
     const type = $id("edit-path-type").value;
-    const name = $id("edit-path-name").value.trim() || (type === "path" ? "Path" : "Road");
     const points = edit.pts.map(p => p.slice());
+    if (type === "road") { finishSideRoad($id("edit-path-name").value.trim() || "Side Road", points); return; }
+    const name = $id("edit-path-name").value.trim() || (type === "path" ? "Path" : "Road");
     previewPaths.push({ name, status: type, points });
     edit.pathLines.push(`  { name: ${JSON.stringify(name)}, status: "${type}", points: [${points.map(p => `[${p[0]}, ${p[1]}]`).join(", ")}] },`);
     endDrawing();
@@ -754,6 +804,20 @@ if (route) {
       `It's only on your screen until you add it to data.js.` +
       (PATH_KIND[type].routable ? " Directions can already use it, so you can test it now." : " Directions won't route through it."));
   }
+  // a finished side road: preview it as a real road and give the SIDE_ROADS line for data.js
+  function finishSideRoad(name, points) {
+    previewSideRoads.push({ name, major: false, points });
+    edit.sideLines.push(`  { name: ${JSON.stringify(name)}, major: false, points: [${points.map(p => `[${p[0]}, ${p[1]}]`).join(", ")}] },`);
+    endDrawing();
+    redrawRoads();
+    $id("edit-side-snippet").textContent = edit.sideLines.join("\n");
+    $id("edit-out-side").hidden = false;
+    $id("edit-clear").hidden = false;
+    $id("edit-path-name").value = "";
+    editMsg(`Previewing side road <b>${escHTML(name)}</b> (${Math.round(pathLen({ points })).toLocaleString()} blocks). ` +
+      `It's only on your screen until you add it to data.js. Directions can already use it, so you can test it now. ` +
+      `Change <code>major: false</code> to <code>true</code> to make it a yellow highway.`);
+  }
   // Where a click lands: snapped onto a nearby stop, path corner or road (within 14 px on screen).
   // Paths are perfectly straight: each piece runs exactly north-south or east-west from the last point
   // (hold Shift while clicking for any angle).
@@ -762,7 +826,8 @@ if (route) {
     const px = p => liveMap.latLngToContainerPoint(ll(p)).distanceTo(e.containerPoint);
     let raw = [e.latlng.lng * 8, -e.latlng.lat * 8];
     const prev = edit.pts[edit.pts.length - 1];
-    const straight = prev && !(e.originalEvent && e.originalEvent.shiftKey);   // hold Shift for any angle
+    // hold Shift for any angle (paths only: side roads are always straight)
+    const straight = prev && (drawingSide() || !(e.originalEvent && e.originalEvent.shiftKey));
     let lockX = false;                                       // true = this piece runs north-south (keeps prev's X)
     if (straight) {
       lockX = Math.abs(raw[1] - prev[1]) > Math.abs(raw[0] - prev[0]);
