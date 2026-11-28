@@ -16,11 +16,11 @@ const LOCATIONS = [
   
   { name: "SamaShop",  type: "Shop", x: -13610,  z: 2540, desc: "A shop by GumiSamaVT." },
   { name: "Regalian Empire",  type: "Town", x: -8430,   z: 0,  desc: "An empire ruled by Bloodhound412 with the support of Redflamz." },
-  { name: "Bucees",  type: "Shop", x: -3404,  z: 0, desc: "A shop." },
+  { name: "Bucees",  type: "Shop", x: -3404,  z: 0, desc: "A unfinished shop." },
   { name: "Shop/EXP",  type: "Shop", x: -3404,  z: -5600, desc: "/pw EXP and /pw Shop." },
   { name: "Community Center",  type: "Park", x: 0,  z: 0, desc: "A community park." },
   
-  { name: "/pw Highway Hub",  type: "Hub", x: 840,  z: 0, desc: "The /pw Highway spawn point." },
+  { name: "/pw Highway",  type: "Hub", x: 840,  z: 0, desc: "The /pw Highway spawn point." },
   { name: "Atlantis",  type: "Shop", x: 11180,  z: -9700, desc: "A large shop." }
 ];
 
