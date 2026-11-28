@@ -69,7 +69,7 @@ const PATHS = [
   { name: "LH10", status: "construction", points: [[3, 3397], [3, 13885]] },
     { name: "LH505", status: "construction", points: [[19650, -1350], [19650, -5949]] },
   { name: "LH5 Connector", status: "closed", points: [[11241, -341], [11087, -341]] },
-  { name: "Old Forest Rd", status: "path", points: [[1712, -4], [1712, -682]] }
+  { name: "Old Cobble Rd", status: "path", points: [[1712, -4], [1712, -682]] }
 ];
 
 // ---------------- Side roads ----------------
