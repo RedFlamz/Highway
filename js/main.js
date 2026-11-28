@@ -885,6 +885,7 @@ if (route) {
   }
 
   // ================= Navigation: follow a player and give turn-by-turn directions =================
+  const CLOSED_NEAR = 10;                                    // a closed road this close (blocks) to a way blocks it
   const NAV = Object.assign({ playerFeed: "", roadSpeed: 40, offroadSpeed: 6, pathSpeed: 7, offroadDetour: 1, pollSeconds: 2, arriveDistance: 16, snapMax: 4000, gapLink: 250, jog: 250 },
     typeof NAV_SETTINGS === "undefined" ? {} : NAV_SETTINGS);
   const navForm = document.getElementById("nav-form"), navName = document.getElementById("nav-name");
@@ -922,8 +923,21 @@ if (route) {
     };
     const along = (r, p) => r.dir === "EW" ? p[0] : p[1];
     const stationAt = (i, n) => { const p = projectOnRoad([n.x, n.z], namedRoads[i]); stations[i].push({ a: along(namedRoads[i], p), n }); };
+    // Closed roads (PATHS with status "closed") are avoided: nothing may run along one, whether a road,
+    // a path or a walk across a gap. Crossing a closed road at an angle is still fine.
+    const closedSegs = [];
+    namedPaths.forEach(p => { if (p.type === "closed") p.points.forEach((q, k) => { if (k) closedSegs.push([p.points[k - 1], q]); }); });
+    const alongClosed = (a, b) => closedSegs.some(([c, d]) => {
+      const sx = d[0] - c[0], sz = d[1] - c[1], sl = Math.hypot(sx, sz), lx = b.x - a.x, lz = b.z - a.z, ll = Math.hypot(lx, lz);
+      if (!sl || !ll || Math.abs((sx * lx + sz * lz) / (sl * ll)) < 0.9) return false;       // not running the same way
+      return [0.25, 0.5, 0.75].some(f => {
+        const px = a.x + lx * f, pz = a.z + lz * f, t = ((px - c[0]) * sx + (pz - c[1]) * sz) / (sl * sl);
+        return t > 0 && t < 1 && Math.hypot(px - (c[0] + sx * t), pz - (c[1] + sz * t)) <= CLOSED_NEAR;
+      });
+    });
     // offroadDetour: count cross-country (no road or path) as this many times longer (1 = straight line)
     const link = (a, b, len, speed, road) => {
+      if (closedSegs.length && alongClosed(a, b)) return;   // that way is closed
       const cost = len / speed * (road ? 1 : NAV.offroadDetour);
       a.edges.push({ to: b, len, cost, road });
       b.edges.push({ to: a, len, cost, road });
@@ -958,6 +972,13 @@ if (route) {
           if (m !== n) link(n, m, d, NAV.offroadSpeed, null);
         });
       });
+    });
+    // roads are split where a closed stretch starts and ends, so only the closed bit is left out
+    namedPaths.forEach(p => {
+      if (p.type !== "closed") return;
+      p.points.forEach(q => namedRoads.forEach((r, j) => {
+        if (distToRoad(q, r) <= CLOSED_NEAR) stationAt(j, node(...projectOnRoad(q, r)));
+      }));
     });
     const projSeg = ([x, z], a, b) => {
       const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz;
@@ -1064,12 +1085,9 @@ if (route) {
     keep.forEach((s, k) => {
       const prevStep = keep[k - 1], dir = compass(s.to.x - s.from.x, s.to.z - s.from.z);
       if (s.road && s.road.path) {
-        const first = compass(...s.v);
-        s.icon = s.road.type === "construction" ? "cone" : "walk";
-        const sameName = prevStep && prevStep.road && prevStep.road.name === s.road.name;   // e.g. LH10 carrying on as construction
-        s.text = s.road.type === "construction"
-          ? (sameName ? `Continue on ${pathTitle(s.road)}` : `Head ${first} on ${pathTitle(s.road)}`)
-          : `Walk ${first} along ${s.road.name}`;
+        // paths and roads under construction are both walked: "Walk south along LH10 (under construction)"
+        s.icon = "walk";
+        s.text = `Walk ${compass(...s.v)} along ${pathTitle(s.road)}`;
         return;
       }
       if (!s.road) {
@@ -1158,7 +1176,8 @@ if (route) {
     const head = words(Math.floor(n / 100)), tail = n % 100;
     return head + " " + (tail < 10 ? "oh " + ONES[tail] : words(tail));
   }
-  const sayable = t => t.replace(/\bLH(\d+)/g, (_, n) => "Lotus Highway " + highwayNumber(n)).replace(/\/pw\b/g, "slash P W")
+  // "Old Forest Rd" -> "Old Forest Road" (voices read "Rd" as letters)
+  const sayable = t => t.replace(/\bLH(\d+)/g, (_, n) => "Lotus Highway " + highwayNumber(n)).replace(/\bR[dD]\b\.?/g, "Road").replace(/\/pw\b/g, "slash P W")
     .replace(/(\d),(\d)/g, "$1$2").replace(/-?\b\d+\b/g, m => words(+m));
   const roundSay = d => d >= 500 ? Math.round(d / 100) * 100 : Math.max(10, Math.round(d / 50) * 50);
   // Pick the nicest English voice the device has. Best first: Edge's "Natural" (neural) voices,
@@ -1178,11 +1197,11 @@ if (route) {
   // Nothing is downloaded until someone picks it in the dropdown. The model (~63 MB) is then kept in the
   // browser's storage, so it only downloads once.
   const PIPER_LIB = "https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm";
-  // Amy says numbers ("fourteen thousand") the most clearly of the Piper voices
-  const PIPER_VOICES = { "en_US-amy-medium": "Piper Amy" };
+  // Amy (female) and Ryan (male, the Lotus Maps mod's default voice) say numbers ("fourteen thousand") clearly
+  const PIPER_VOICES = { "en_US-amy-medium": "Piper Amy", "en_US-ryan-medium": "Piper Ryan" };
   // How slowly each Piper voice talks: 1 = the model's normal pace, above 1 = slower (1.1 = 10% slower),
   // below 1 = faster (0.9 = 10% faster). The voice itself is made faster/slower, which stays clear.
-  const PIPER_PACES = { "en_US-amy-medium": 0.92 };
+  const PIPER_PACES = { "en_US-amy-medium": 0.92, "en_US-ryan-medium": 0.92 };
   // Piper reads its settings from the voice's .json file (saved in the browser's storage); set the pace there
   async function tunePiper(id) {
     try {
@@ -1506,7 +1525,7 @@ if (route) {
     const moving = Math.hypot(...track.v);
     // boat on the Highway is the default, so only mention when part of the trip is off the boat
     const how = [steps.some(s => s.road && s.road.type === "path") && "a path",
-      steps.some(s => s.road && s.road.type === "construction") && "a road under construction"].filter(Boolean);
+      steps.some(s => s.road && s.road.type === "construction") && "walking along a road under construction"].filter(Boolean);
     navMessage(`${fmtBlocks(total)} to ${dest.name} · about ${fmtTime(time)}${how.length ? ` (includes ${how.join(" and ")})` : ""}` +
       (moving ? ` · moving ${Math.round(moving)} blocks/s` : "") + `. Position updates every ${NAV.pollSeconds}s.`, "ok");
     voice.arrived = false;

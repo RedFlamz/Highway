@@ -57,8 +57,10 @@ const NAV_SETTINGS = {
 // ---------------- Paths ----------------
 // These are NOT made from claims: you draw them by hand. They show on the live map.
 // status: "path"         - a path you walk or fly along (used for directions)
-//         "construction" - a road that's under construction (used for directions, with a warning)
-//         "closed"       - a closed road (shown on the map, never used for directions)
+//         "construction" - a road that's under construction: directions WALK along it, like a path
+//                          ("Walk south along LH10 (under construction)")
+//         "closed"       - a closed road: shown on the map, and directions AVOID it - they never go along it,
+//                          even where a claimed road or a gap between roads is underneath
 // points: the corners of the path in order, as [x, z]. Start or end a path on a road (or near a stop)
 //         so directions can use it.
 // Easiest way to make these: open locations.html?edit, click "Draw path", click along the path,
